@@ -28,6 +28,7 @@ class MainActivity : Activity() {
 
     private lateinit var notifStatus: TextView
     private lateinit var overlayStatus: TextView
+    private lateinit var wallStatus: TextView
     private lateinit var panel: PanelView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +73,18 @@ class MainActivity : Activity() {
             startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             )
+        }, lp(top = 8f))
+
+        perms.addView(divider(), lp(top = 14f, bottom = 14f))
+
+        wallStatus = text("", 13f, Color.argb(170, 255, 255, 255))
+        perms.addView(text("Duvar kâğıdına erişim", 16f, Color.WHITE, bold = true))
+        perms.addView(text("Panelin camının arkasında senin duvar kâğıdını bulanık göstermek için gerekli.", 13f, Color.argb(150, 255, 255, 255)), lp(top = 2f))
+        perms.addView(wallStatus, lp(top = 6f))
+        perms.addView(button("İzni ver") {
+            if (Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT < 33) {
+                requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 2)
+            }
         }, lp(top = 8f))
 
         perms.addView(divider(), lp(top = 14f, bottom = 14f))
@@ -134,22 +147,45 @@ class MainActivity : Activity() {
         }
         setContentView(scroll)
 
+        val missing = ArrayList<String>()
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            missing.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        if (!hasWallpaperAccess()) {
+            missing.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        if (missing.isNotEmpty()) {
+            requestPermissions(missing.toTypedArray(), 1)
+        }
+    }
+
+    private fun hasWallpaperAccess(): Boolean {
+        if (Build.VERSION.SDK_INT < 23 || Build.VERSION.SDK_INT >= 33) return true
+        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        updateStatuses()
+    }
+
+    private fun setStatus(tv: TextView, on: Boolean) {
+        tv.text = if (on) "Durum: açık ✓" else "Durum: kapalı"
+        tv.setTextColor(if (on) Color.parseColor("#7BE0A0") else Color.parseColor("#FF8A80"))
+    }
+
+    private fun updateStatuses() {
+        setStatus(notifStatus, isNotificationAccessOn())
+        setStatus(overlayStatus, Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(this))
+        setStatus(wallStatus, hasWallpaperAccess())
     }
 
     override fun onResume() {
         super.onResume()
+        updateStatuses()
         val notifOn = isNotificationAccessOn()
-        notifStatus.text = if (notifOn) "Durum: açık ✓" else "Durum: kapalı"
-        notifStatus.setTextColor(if (notifOn) Color.parseColor("#7BE0A0") else Color.parseColor("#FF8A80"))
-
-        val overlayOn = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(this)
-        overlayStatus.text = if (overlayOn) "Durum: açık ✓" else "Durum: kapalı"
-        overlayStatus.setTextColor(if (overlayOn) Color.parseColor("#7BE0A0") else Color.parseColor("#FF8A80"))
 
         if (notifOn) {
             try {

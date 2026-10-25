@@ -17,14 +17,38 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 
 /**
- * Liquid Glass görünümlü kart: kapak resminden üretilmiş bulanık arka plan,
- * açık/koyu cam tonu, üstte ışık yansıması ve gradyan kenar çizgisi.
+ * Liquid Glass görünümlü kart:
+ *  - arkada kullanıcının bulanık duvar kâğıdı (kartın ekrandaki konumuna denk bölge)
+ *  - üstünde kapak resminin renklerinden oluşan renk tonu
+ *  - süt camı tonu, üst ışık yansıması ve gradyan kenar çizgisi
  */
 class GlassCard(context: Context) : FrameLayout(context) {
 
-    var backdrop: Bitmap? = null
+    companion object {
+        const val DEFAULT_TOP = 0xFF3A4766.toInt()
+        const val DEFAULT_BOTTOM = 0xFF171B29.toInt()
+    }
+
+    var screenBackdrop: Bitmap? = null
         set(value) {
             field = value
+            invalidate()
+        }
+
+    var screenW: Int = 0
+    var screenH: Int = 0
+
+    var tintTop: Int = DEFAULT_TOP
+        set(value) {
+            field = value
+            rebuildTint()
+            invalidate()
+        }
+
+    var tintBottom: Int = DEFAULT_BOTTOM
+        set(value) {
+            field = value
+            rebuildTint()
             invalidate()
         }
 
@@ -41,15 +65,17 @@ class GlassCard(context: Context) : FrameLayout(context) {
     private val rect = RectF()
     private val strokeRect = RectF()
     private val src = Rect()
+    private val loc = IntArray(2)
 
     private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bmpPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         val cm = ColorMatrix()
-        cm.setSaturation(1.5f)
+        cm.setSaturation(1.35f)
         colorFilter = ColorMatrixColorFilter(cm)
     }
+    private val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val scrim = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val milk = Paint(Paint.ANTI_ALIAS_FLAG)
     private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -66,12 +92,20 @@ class GlassCard(context: Context) : FrameLayout(context) {
         clipToOutline = true
     }
 
+    private fun rebuildTint() {
+        if (height <= 0) return
+        tintPaint.shader = LinearGradient(
+            0f, 0f, 0f, height.toFloat(), tintTop, tintBottom, Shader.TileMode.CLAMP
+        )
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         basePaint.shader = LinearGradient(
             0f, 0f, w.toFloat(), h.toFloat(),
-            0xFF3A4766.toInt(), 0xFF171B29.toInt(), Shader.TileMode.CLAMP
+            0xFF2E3850.toInt(), 0xFF141824.toInt(), Shader.TileMode.CLAMP
         )
+        rebuildTint()
         sheen.shader = LinearGradient(
             0f, 0f, 0f, h * 0.55f,
             Color.argb(70, 255, 255, 255), Color.argb(0, 255, 255, 255), Shader.TileMode.CLAMP
@@ -96,31 +130,30 @@ class GlassCard(context: Context) : FrameLayout(context) {
         // taban
         canvas.drawRoundRect(rect, radius, radius, basePaint)
 
-        // bulanık kapak (merkezden kırparak doldur)
-        backdrop?.let { bmp ->
-            if (!bmp.isRecycled && bmp.width > 0 && bmp.height > 0) {
-                val boxRatio = w / h
-                val bmpRatio = bmp.width.toFloat() / bmp.height
-                if (bmpRatio > boxRatio) {
-                    val sw = (bmp.height * boxRatio).toInt().coerceAtLeast(1)
-                    val l = (bmp.width - sw) / 2
-                    src.set(l, 0, l + sw, bmp.height)
-                } else {
-                    val sh = (bmp.width / boxRatio).toInt().coerceAtLeast(1)
-                    val t = (bmp.height - sh) / 2
-                    src.set(0, t, bmp.width, t + sh)
-                }
-                canvas.drawBitmap(bmp, src, rect, bmpPaint)
-            }
+        // duvar kâğıdı: kartın ekrandaki yerine denk gelen bölge
+        val bm = screenBackdrop
+        if (bm != null && !bm.isRecycled && screenW > 0 && screenH > 0) {
+            getLocationOnScreen(loc)
+            val sx = bm.width.toFloat() / screenW
+            val sy = bm.height.toFloat() / screenH
+            val l = (loc[0] * sx).toInt().coerceIn(0, bm.width - 1)
+            val t = (loc[1] * sy).toInt().coerceIn(0, bm.height - 1)
+            val r = ((loc[0] + width) * sx).toInt().coerceIn(l + 1, bm.width)
+            val b = ((loc[1] + height) * sy).toInt().coerceIn(t + 1, bm.height)
+            src.set(l, t, r, b)
+            canvas.drawBitmap(bm, src, rect, bmpPaint)
         }
 
         val a = glass / 100f
-        // koyu perde (cam ne kadar şeffafsa o kadar hafif)
-        scrim.color = Color.argb((255 * (0.52f - 0.36f * a)).toInt(), 8, 10, 16)
+        // kapaktan gelen renk tonu
+        tintPaint.alpha = (255 * (0.58f - 0.16f * a)).toInt()
+        canvas.drawRoundRect(rect, radius, radius, tintPaint)
+        // okunabilirlik için hafif koyu perde
+        scrim.color = Color.argb((255 * (0.30f - 0.16f * a)).toInt(), 6, 8, 14)
         canvas.drawRoundRect(rect, radius, radius, scrim)
         // süt camı tonu
-        tint.color = Color.argb((255 * (0.07f + 0.09f * a)).toInt(), 255, 255, 255)
-        canvas.drawRoundRect(rect, radius, radius, tint)
+        milk.color = Color.argb((255 * (0.05f + 0.06f * a)).toInt(), 255, 255, 255)
+        canvas.drawRoundRect(rect, radius, radius, milk)
         // üst ışık yansıması
         canvas.drawRoundRect(rect, radius, radius, sheen)
 

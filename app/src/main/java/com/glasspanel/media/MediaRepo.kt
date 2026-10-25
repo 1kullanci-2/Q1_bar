@@ -18,7 +18,8 @@ data class TrackInfo(
     val speed: Float,
     val isPlaying: Boolean,
     val appName: String,
-    val packageName: String
+    val packageName: String,
+    val appIcon: Bitmap? = null
 ) {
     fun currentPosition(): Long {
         if (!isPlaying) return positionMs.coerceAtLeast(0L)

@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
@@ -170,7 +171,8 @@ class MediaListenerService : NotificationListenerService() {
             speed = st?.playbackSpeed ?: 1f,
             isPlaying = playing,
             appName = appLabel(c.packageName),
-            packageName = c.packageName
+            packageName = c.packageName,
+            appIcon = iconBitmap(c.packageName)
         )
         MediaRepo.publish(c, info)
 
@@ -193,6 +195,25 @@ class MediaListenerService : NotificationListenerService() {
         }
         artKey = uriStr
         artCache = bmp
+        return bmp
+    }
+
+    private val iconCache = HashMap<String, Bitmap?>()
+
+    private fun iconBitmap(pkg: String): Bitmap? {
+        if (iconCache.containsKey(pkg)) return iconCache[pkg]
+        val bmp = try {
+            val d = packageManager.getApplicationIcon(pkg)
+            val s = 96
+            val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+            val cv = Canvas(b)
+            d.setBounds(0, 0, s, s)
+            d.draw(cv)
+            b
+        } catch (_: Exception) {
+            null
+        }
+        iconCache[pkg] = bmp
         return bmp
     }
 
