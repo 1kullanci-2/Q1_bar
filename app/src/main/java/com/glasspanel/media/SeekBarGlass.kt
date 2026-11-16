@@ -27,6 +27,14 @@ class SeekBarGlass(context: Context) : View(context) {
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(240, 255, 255, 255) }
     private val rect = RectF()
 
+    /** Dolu kısmın rengi (kapağın vurgu rengi). */
+    var accent: Int = Color.WHITE
+        set(value) {
+            field = value
+            fill.color = value
+            invalidate()
+        }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val h = context.dpi(28f)
         setMeasuredDimension(resolveSize(suggestedMinimumWidth, widthMeasureSpec), resolveSize(h, heightMeasureSpec))

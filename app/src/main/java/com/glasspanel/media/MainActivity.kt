@@ -12,52 +12,56 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.service.notification.NotificationListenerService
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
-import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
 
 class MainActivity : Activity() {
 
     private lateinit var notifStatus: TextView
     private lateinit var overlayStatus: TextView
-    private lateinit var wallStatus: TextView
     private lateinit var panel: PanelView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dpi(18f), dpi(28f), dpi(18f), dpi(32f))
-        }
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.setPadding(dpi(18f), dpi(28f), dpi(18f), dpi(32f))
 
         root.addView(text("Medya Paneli", 28f, Color.WHITE, bold = true))
         root.addView(
-            text("Çalan müziği kilit ekranında cam görünümlü bir panelde gösterir.", 14f, Color.argb(160, 255, 255, 255)),
+            text("Çalan müziği kilit ekranında ve ana ekranda şık bir panelle gösterir.", 14f, Color.argb(160, 255, 255, 255)),
             lp(top = 4f)
         )
 
         // Önizleme
         panel = PanelView(this)
+        panel.maxCoverDp = 240f
         val previewWrap = FrameLayout(this)
         val w = minOf(resources.displayMetrics.widthPixels - dpi(36f), dpi(380f))
-        previewWrap.addView(panel, FrameLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL))
+        previewWrap.addView(
+            panel,
+            FrameLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL)
+        )
         root.addView(previewWrap, lp(top = 20f))
 
-        // İzinler
+        // ---- İzinler ----
         root.addView(section("İZİNLER"), lp(top = 28f))
         val perms = card()
+
         notifStatus = text("", 13f, Color.argb(170, 255, 255, 255))
         perms.addView(text("Bildirim erişimi", 16f, Color.WHITE, bold = true))
-        perms.addView(text("Medya oturumlarını (şarkı, kapak, süre) okumak için gerekli.", 13f, Color.argb(150, 255, 255, 255)), lp(top = 2f))
+        perms.addView(note("Medya oturumlarını (şarkı, kapak, süre) okumak için gerekli."), lp(top = 2f))
         perms.addView(notifStatus, lp(top = 6f))
         perms.addView(button("Bildirim erişimini aç") {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -67,7 +71,7 @@ class MainActivity : Activity() {
 
         overlayStatus = text("", 13f, Color.argb(170, 255, 255, 255))
         perms.addView(text("Diğer uygulamaların üstünde göster", 16f, Color.WHITE, bold = true))
-        perms.addView(text("Android 10 ve üstünde panelin kilit ekranında kendiliğinden açılması için gerekli.", 13f, Color.argb(150, 255, 255, 255)), lp(top = 2f))
+        perms.addView(note("Alt çubuğun ve panelin kilit ekranında kendiliğinden açılması için gerekli."), lp(top = 2f))
         perms.addView(overlayStatus, lp(top = 6f))
         perms.addView(button("İzni aç") {
             startActivity(
@@ -77,98 +81,95 @@ class MainActivity : Activity() {
 
         perms.addView(divider(), lp(top = 14f, bottom = 14f))
 
-        wallStatus = text("", 13f, Color.argb(170, 255, 255, 255))
-        perms.addView(text("Duvar kâğıdına erişim", 16f, Color.WHITE, bold = true))
-        perms.addView(text("Panelin camının arkasında senin duvar kâğıdını bulanık göstermek için gerekli.", 13f, Color.argb(150, 255, 255, 255)), lp(top = 2f))
-        perms.addView(wallStatus, lp(top = 6f))
-        perms.addView(button("İzni ver") {
-            if (Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT < 33) {
-                requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 2)
-            }
-        }, lp(top = 8f))
-
-        perms.addView(divider(), lp(top = 14f, bottom = 14f))
-
-        perms.addView(text("Pil kısıtlaması", 16f, Color.WHITE, bold = true))
-        perms.addView(text("Huawei gibi telefonlar arka plandaki uygulamaları kapatabilir. Bu uygulamayı kısıtlamasız yap.", 13f, Color.argb(150, 255, 255, 255)), lp(top = 2f))
+        perms.addView(text("Arka planda çalışsın (Huawei için önemli)", 16f, Color.WHITE, bold = true))
+        perms.addView(
+            note(
+                "Uygulamayı açmadan da panelin gelmesi için telefonun bu uygulamayı kapatmaması gerekir. " +
+                    "Önce pil kısıtlamasını kaldır. Sonra Huawei başlatma ayarlarında Medya Paneli için " +
+                    "\"Otomatik yönet\"i kapatıp Otomatik başlat, İkincil başlat ve Arka planda çalış seçeneklerini aç."
+            ),
+            lp(top = 2f)
+        )
         perms.addView(button("Pil ayarlarını aç") {
             startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }, lp(top = 8f))
+        perms.addView(button("Huawei başlatma ayarlarını aç") { openStartupSettings() }, lp(top = 8f))
         root.addView(perms, lp(top = 8f))
 
-        // Ayarlar
-        root.addView(section("AYARLAR"), lp(top = 24f))
-        val set = card()
+        // ---- Kilit ekranı ----
+        root.addView(section("KİLİT EKRANI"), lp(top = 24f))
+        val lock = card()
+        lock.addView(text("Müzik çalınca ne görünsün?", 16f, Color.WHITE, bold = true))
 
-        val swLock = Switch(this).apply {
-            text = "Kilit ekranında paneli göster"
-            setTextColor(Color.WHITE)
-            textSize = 15f
-            isChecked = Prefs.lockPanel(this@MainActivity)
-            setOnCheckedChangeListener { _, v -> Prefs.setLockPanel(this@MainActivity, v) }
+        val group = RadioGroup(this)
+        group.orientation = RadioGroup.VERTICAL
+        val rbBar = radio("Alt çubuk (dokununca panel açılır)")
+        val rbFull = radio("Tam panel")
+        val rbOff = radio("Hiçbir şey")
+        group.addView(rbBar)
+        group.addView(rbFull)
+        group.addView(rbOff)
+        group.check(
+            when (Prefs.mode(this)) {
+                Prefs.MODE_FULL -> rbFull.id
+                Prefs.MODE_OFF -> rbOff.id
+                else -> rbBar.id
+            }
+        )
+        group.setOnCheckedChangeListener { _, id ->
+            val mode = when (id) {
+                rbFull.id -> Prefs.MODE_FULL
+                rbOff.id -> Prefs.MODE_OFF
+                else -> Prefs.MODE_BAR
+            }
+            Prefs.setMode(this, mode)
         }
-        set.addView(swLock)
+        lock.addView(group, lp(top = 6f))
 
-        val swPlaying = Switch(this).apply {
-            text = "Sadece müzik çalarken göster"
-            setTextColor(Color.WHITE)
-            textSize = 15f
-            isChecked = Prefs.onlyWhilePlaying(this@MainActivity)
-            setOnCheckedChangeListener { _, v -> Prefs.setOnlyWhilePlaying(this@MainActivity, v) }
-        }
-        set.addView(swPlaying, lp(top = 16f))
+        val swPlaying = Switch(this)
+        swPlaying.text = "Sadece müzik çalarken göster"
+        swPlaying.setTextColor(Color.WHITE)
+        swPlaying.textSize = 15f
+        swPlaying.isChecked = Prefs.onlyWhilePlaying(this)
+        swPlaying.setOnCheckedChangeListener { _, v -> Prefs.setOnlyWhilePlaying(this, v) }
+        lock.addView(swPlaying, lp(top = 14f))
 
-        set.addView(text("Cam şeffaflığı", 15f, Color.WHITE), lp(top = 18f))
-        val glassBar = SeekBar(this).apply {
-            max = 100
-            progress = Prefs.glass(this@MainActivity)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        Prefs.setGlass(this@MainActivity, p)
-                        panel.render()
-                    }
-                }
-
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {}
-            })
-        }
-        set.addView(glassBar, lp(top = 4f))
-        root.addView(set, lp(top = 8f))
-
-        root.addView(button("Paneli şimdi aç (deneme)") {
+        lock.addView(button("Alt çubuğu dene (5 sn)") {
+            if (!NowBar.canShow(this)) {
+                Toast.makeText(this, "Önce \"Diğer uygulamaların üstünde göster\" iznini ver", Toast.LENGTH_LONG).show()
+            } else {
+                NowBar.show(this, demo = true)
+                panel.postDelayed({ NowBar.hide() }, 5000)
+            }
+        }, lp(top = 16f))
+        lock.addView(button("Tam paneli şimdi aç (deneme)") {
             startActivity(Intent(this, LockPanelActivity::class.java))
-        }, lp(top = 22f))
+        }, lp(top = 8f))
+        root.addView(lock, lp(top = 8f))
 
-        val scroll = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#0E1015"))
-            addView(root)
-        }
+        // ---- Widget ----
+        root.addView(section("WIDGET"), lp(top = 24f))
+        val widget = card()
+        widget.addView(text("Ana ekran widget'ı", 16f, Color.WHITE, bold = true))
+        widget.addView(
+            note(
+                "Ana ekranda boş bir yere uzun bas, Widget'lar'a gir ve Medya Paneli'ni seç. " +
+                    "Kapak, şarkı, sanatçı, çalan uygulamanın simgesi ve önceki / oynat-durdur / sonraki düğmeleri gelir."
+            ),
+            lp(top = 2f)
+        )
+        root.addView(widget, lp(top = 8f))
+
+        val scroll = ScrollView(this)
+        scroll.setBackgroundColor(Color.parseColor("#0E1015"))
+        scroll.addView(root)
         setContentView(scroll)
 
-        val missing = ArrayList<String>()
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
-            missing.add(Manifest.permission.POST_NOTIFICATIONS)
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
-        if (!hasWallpaperAccess()) {
-            missing.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-        if (missing.isNotEmpty()) {
-            requestPermissions(missing.toTypedArray(), 1)
-        }
-    }
-
-    private fun hasWallpaperAccess(): Boolean {
-        if (Build.VERSION.SDK_INT < 23 || Build.VERSION.SDK_INT >= 33) return true
-        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        updateStatuses()
     }
 
     private fun setStatus(tv: TextView, on: Boolean) {
@@ -176,22 +177,16 @@ class MainActivity : Activity() {
         tv.setTextColor(if (on) Color.parseColor("#7BE0A0") else Color.parseColor("#FF8A80"))
     }
 
-    private fun updateStatuses() {
-        setStatus(notifStatus, isNotificationAccessOn())
-        setStatus(overlayStatus, Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(this))
-        setStatus(wallStatus, hasWallpaperAccess())
-    }
-
     override fun onResume() {
         super.onResume()
-        updateStatuses()
         val notifOn = isNotificationAccessOn()
+        setStatus(notifStatus, notifOn)
+        setStatus(overlayStatus, Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(this))
 
         if (notifOn) {
-            try {
-                NotificationListenerService.requestRebind(ComponentName(this, MediaListenerService::class.java))
-            } catch (_: Exception) {
-            }
+            // dinleyiciyi ve arka plan servisini canlandır
+            KeepAliveService.start(this)
+            KeepAliveService.rebind(this)
         }
         panel.render()
     }
@@ -201,47 +196,96 @@ class MainActivity : Activity() {
         return flat.split(":").any { ComponentName.unflattenFromString(it)?.packageName == packageName }
     }
 
+    /** Huawei'nin "Uygulama başlatma" ekranını açmayı dener, olmazsa uygulama ayrıntılarına gider. */
+    private fun openStartupSettings() {
+        val targets = listOf(
+            ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
+            ),
+            ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.optimize.process.ProtectActivity"
+            )
+        )
+        for (c in targets) {
+            try {
+                startActivity(Intent().setComponent(c))
+                return
+            } catch (_: Exception) {
+            }
+        }
+        try {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+            )
+        } catch (_: Exception) {
+        }
+    }
+
     // --- küçük arayüz yardımcıları ---
 
-    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
-        text = s
-        textSize = sp
-        setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView {
+        val t = TextView(this)
+        t.text = s
+        t.textSize = sp
+        t.setTextColor(color)
+        if (bold) t.typeface = Typeface.DEFAULT_BOLD
+        return t
     }
 
-    private fun section(s: String) = text(s, 12f, Color.argb(140, 255, 255, 255), bold = true).apply {
-        letterSpacing = 0.1f
+    private fun note(s: String) = text(s, 13f, Color.argb(150, 255, 255, 255))
+
+    private fun section(s: String): TextView {
+        val t = text(s, 12f, Color.argb(140, 255, 255, 255), bold = true)
+        t.letterSpacing = 0.1f
+        return t
     }
 
-    private fun card() = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dpi(16f), dpi(16f), dpi(16f), dpi(16f))
-        background = GradientDrawable().apply {
-            cornerRadius = dpf(20f)
-            setColor(Color.parseColor("#171A21"))
-        }
+    private fun radio(label: String): RadioButton {
+        val r = RadioButton(this)
+        r.id = View.generateViewId()
+        r.text = label
+        r.setTextColor(Color.WHITE)
+        r.textSize = 15f
+        return r
     }
 
-    private fun divider() = View(this).apply {
-        setBackgroundColor(Color.argb(30, 255, 255, 255))
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpi(1f))
+    private fun card(): LinearLayout {
+        val c = LinearLayout(this)
+        c.orientation = LinearLayout.VERTICAL
+        c.setPadding(dpi(16f), dpi(16f), dpi(16f), dpi(16f))
+        val bg = GradientDrawable()
+        bg.cornerRadius = dpf(20f)
+        bg.setColor(Color.parseColor("#171A21"))
+        c.background = bg
+        return c
     }
 
-    private fun button(label: String, onClick: () -> Unit) = Button(this).apply {
-        text = label
-        setAllCaps(false)
-        setTextColor(Color.WHITE)
-        background = GradientDrawable().apply {
-            cornerRadius = dpf(14f)
-            setColor(Color.parseColor("#2A3350"))
-        }
-        setOnClickListener { onClick() }
+    private fun divider(): View {
+        val v = View(this)
+        v.setBackgroundColor(Color.argb(30, 255, 255, 255))
+        v.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpi(1f))
+        return v
     }
 
-    private fun lp(top: Float = 0f, bottom: Float = 0f) =
-        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            topMargin = dpi(top)
-            bottomMargin = dpi(bottom)
-        }
+    private fun button(label: String, onClick: () -> Unit): Button {
+        val b = Button(this)
+        b.text = label
+        b.setAllCaps(false)
+        b.setTextColor(Color.WHITE)
+        val bg = GradientDrawable()
+        bg.cornerRadius = dpf(14f)
+        bg.setColor(Color.parseColor("#2A3350"))
+        b.background = bg
+        b.setOnClickListener { onClick() }
+        return b
+    }
+
+    private fun lp(top: Float = 0f, bottom: Float = 0f): LinearLayout.LayoutParams {
+        val p = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        p.topMargin = dpi(top)
+        p.bottomMargin = dpi(bottom)
+        return p
+    }
 }

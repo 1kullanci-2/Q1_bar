@@ -21,6 +21,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 
@@ -39,6 +40,7 @@ class MediaListenerService : NotificationListenerService() {
     private var artKey: String? = null
     private var artCache: Bitmap? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val iconCache = HashMap<String, Bitmap?>()
 
     private val sessionsListener =
         MediaSessionManager.OnActiveSessionsChangedListener { list -> pick(list) }
@@ -57,9 +59,16 @@ class MediaListenerService : NotificationListenerService() {
         }
     }
 
+    private val widgetListener: () -> Unit = {
+        MediaWidgetProvider.refresh(this@MediaListenerService)
+    }
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_ON) maybeShowPanel()
+            when (intent.action) {
+                Intent.ACTION_SCREEN_ON -> showForLock()
+                Intent.ACTION_SCREEN_OFF, Intent.ACTION_USER_PRESENT -> NowBar.hide()
+            }
         }
     }
 
@@ -74,9 +83,16 @@ class MediaListenerService : NotificationListenerService() {
         } catch (_: SecurityException) {
         }
         if (!receiverRegistered) {
-            registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+            val f = IntentFilter()
+            f.addAction(Intent.ACTION_SCREEN_ON)
+            f.addAction(Intent.ACTION_SCREEN_OFF)
+            f.addAction(Intent.ACTION_USER_PRESENT)
+            registerReceiver(screenReceiver, f)
             receiverRegistered = true
         }
+        MediaRepo.removeListener(widgetListener)
+        MediaRepo.addListener(widgetListener)
+        KeepAliveService.start(this)
         refresh()
     }
 
@@ -109,7 +125,10 @@ class MediaListenerService : NotificationListenerService() {
             }
             receiverRegistered = false
         }
+        NowBar.hide()
+        MediaRepo.removeListener(widgetListener)
         MediaRepo.publish(null, null)
+        MediaWidgetProvider.refresh(this)
     }
 
     private fun refresh() {
@@ -176,7 +195,7 @@ class MediaListenerService : NotificationListenerService() {
         )
         MediaRepo.publish(c, info)
 
-        if (playing && !lastPlaying) maybeShowPanel()
+        if (playing && !lastPlaying) showForLock()
         lastPlaying = playing
     }
 
@@ -197,8 +216,6 @@ class MediaListenerService : NotificationListenerService() {
         artCache = bmp
         return bmp
     }
-
-    private val iconCache = HashMap<String, Bitmap?>()
 
     private fun iconBitmap(pkg: String): Bitmap? {
         if (iconCache.containsKey(pkg)) return iconCache[pkg]
@@ -226,12 +243,21 @@ class MediaListenerService : NotificationListenerService() {
         }
     }
 
-    private fun maybeShowPanel() {
-        if (!Prefs.lockPanel(this)) return
+    /** Kilit ekranında gösterilecek şeyi (alt çubuk ya da tam panel) hemen gösterir. */
+    private fun showForLock() {
+        val mode = Prefs.mode(this)
+        if (mode == Prefs.MODE_OFF) return
         val i = MediaRepo.info ?: return
         if (Prefs.onlyWhilePlaying(this) && !i.isPlaying) return
         val km = getSystemService(KeyguardManager::class.java)
         if (km == null || !km.isKeyguardLocked) return
+        val interactive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
+
+        if (mode == Prefs.MODE_BAR && NowBar.canShow(this)) {
+            if (interactive) NowBar.show(this)
+            return
+        }
+        // Çubuk için izin yoksa ya da tam panel seçiliyse tam paneli aç
         launchPanel(i)
     }
 

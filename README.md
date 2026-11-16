@@ -1,9 +1,11 @@
 # Medya Paneli
 
-Çalan müziği (Spotify, YouTube Music vb.) kilit ekranında cam görünümlü bir panelde gösteren Android uygulaması.
+Çalan müziği (Spotify, YouTube Music vb.) kilit ekranında ve ana ekranda gösteren Android uygulaması.
 
-- Üstte büyük kart: kapak, şarkı adı, sanatçı, albüm, çalan uygulama
-- Altta ince geniş kart: süre çubuğu, geri / oynat-durdur / ileri
+- Kapak odaklı panel: kapak çerçevesi kapağın oranına göre şekillenir, renkler kapaktan gelir
+- Kilit ekranı: alt çubuk (dokununca panel açılır), tam panel ya da kapalı
+- Büyük ince saat ve kapağın rengini alan tarih hapı
+- Ana ekran widget'ı: kapak, şarkı, sanatçı, uygulama simgesi, önceki / oynat-durdur / sonraki
 - Veriyi bildirim erişimi ile medya oturumlarından okur
 
 ## Derleme
@@ -14,6 +16,6 @@ GitHub'a gönderince **Actions** sekmesinde "APK derle" çalışır. Bittiğinde
 ## Kurulum sonrası
 
 1. Uygulamayı aç, **Bildirim erişimi**ni aç.
-2. **Diğer uygulamaların üstünde göster** iznini aç (Android 10+).
-3. **Pil kısıtlaması**ndan uygulamayı kısıtlamasız yap (Huawei/EMUI için önemli).
+2. **Diğer uygulamaların üstünde göster** iznini aç.
+3. Pil kısıtlamasını kaldır ve (Huawei) başlatma ayarlarında Otomatik başlat, İkincil başlat, Arka planda çalış seçeneklerini aç.
 4. Müzik çal, ekranı kapat, tekrar aç.

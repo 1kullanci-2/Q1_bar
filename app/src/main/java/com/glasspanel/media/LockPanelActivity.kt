@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
-import android.graphics.Point
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
@@ -20,8 +20,8 @@ import android.widget.LinearLayout
 import android.widget.TextClock
 
 /**
- * Kilit ekranının üstünde açılan medya paneli.
- * Üstte saat ve tarih, altta ekrana göre oranlanan cam kartlar.
+ * Kilit ekranının üstünde açılan tam medya paneli.
+ * Üstte büyük, ince saat ve altında kapağın rengini alan tarih hapı; altta ekrana göre oranlanan kapak odaklı kart.
  * Boş bir yere dokununca kapanır, kilit açılınca kendiliğinden kapanır.
  */
 class LockPanelActivity : Activity() {
@@ -62,15 +62,11 @@ class LockPanelActivity : Activity() {
         }
 
         getSystemService(NotificationManager::class.java)?.cancel(MediaListenerService.NOTIF_ID)
-
-        val real = Point()
-        windowManager.defaultDisplay.getRealSize(real)
-        val screenW = real.x
-        val screenH = real.y
+        NowBar.hide()
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(Color.argb(50, 0, 0, 0))
+        root.setBackgroundColor(Color.argb(95, 0, 0, 0))
         root.setPadding(dpi(16f), dpi(36f), dpi(16f), dpi(28f))
         root.setOnClickListener { finish() }
         root.setOnApplyWindowInsetsListener { v, insets ->
@@ -83,10 +79,10 @@ class LockPanelActivity : Activity() {
             insets
         }
 
-        // --- üst bölüm: saat ve tarih ---
+        // --- üst bölüm: saat ve tarih hapı ---
         val density = resources.displayMetrics.density
         val screenDp = resources.displayMetrics.heightPixels / density
-        val timeSp = (screenDp * 0.085f).coerceIn(52f, 104f)
+        val timeSp = (screenDp * 0.09f).coerceIn(56f, 112f)
 
         val clockBox = LinearLayout(this)
         clockBox.orientation = LinearLayout.VERTICAL
@@ -95,28 +91,34 @@ class LockPanelActivity : Activity() {
         val time = TextClock(this)
         time.format24Hour = "HH:mm"
         time.format12Hour = "HH:mm"
-        time.setTextColor(Color.argb(240, 255, 255, 255))
+        time.setTextColor(Color.WHITE)
         time.textSize = timeSp
-        time.typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL)
+        time.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         time.includeFontPadding = false
-        time.letterSpacing = 0.02f
-        time.setShadowLayer(dpf(12f), 0f, dpf(2f), Color.argb(80, 0, 0, 0))
+        time.letterSpacing = -0.02f
+        time.setShadowLayer(dpf(14f), 0f, dpf(2f), Color.argb(90, 0, 0, 0))
         clockBox.addView(
             time,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
+        val pillBg = GradientDrawable()
+        pillBg.cornerRadius = dpf(22f)
+        pillBg.setColor(withAlpha(CoverPalette.DEFAULT_ACCENT, 46))
+        pillBg.setStroke(dpi(1f), withAlpha(CoverPalette.DEFAULT_ACCENT, 110))
+
         val date = TextClock(this)
         date.format24Hour = "EEEE, d MMMM"
         date.format12Hour = "EEEE, d MMMM"
-        date.setTextColor(Color.argb(215, 255, 255, 255))
-        date.textSize = 18f
-        date.letterSpacing = 0.05f
-        date.setShadowLayer(dpf(8f), 0f, dpf(1f), Color.argb(80, 0, 0, 0))
+        date.setTextColor(Color.WHITE)
+        date.textSize = 15f
+        date.letterSpacing = 0.04f
+        date.setPadding(dpi(18f), dpi(7f), dpi(18f), dpi(7f))
+        date.background = pillBg
         clockBox.addView(
             date,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dpi(2f)
+                topMargin = dpi(8f)
             }
         )
         root.addView(clockBox, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.27f))
@@ -124,6 +126,10 @@ class LockPanelActivity : Activity() {
         // --- alt bölüm: panel, kalan yüksekliğe göre oranlanır ---
         val panelArea = FrameLayout(this)
         val panel = PanelView(this)
+        panel.onPalette = { accent ->
+            pillBg.setColor(withAlpha(accent, 46))
+            pillBg.setStroke(dpi(1f), withAlpha(accent, 110))
+        }
         val width = minOf(resources.displayMetrics.widthPixels - dpi(32f), dpi(380f))
         panelArea.addView(
             panel,
@@ -132,15 +138,6 @@ class LockPanelActivity : Activity() {
         root.addView(panelArea, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.73f))
 
         setContentView(root)
-
-        // duvar kâğıdını arka planda yükle, hazır olunca cama uygula
-        val appCtx = applicationContext
-        Thread {
-            val bmp = WallpaperBackdrop.load(appCtx, screenW, screenH)
-            runOnUiThread {
-                if (!isFinishing && !isDestroyed) panel.setScreenBackdrop(bmp, screenW, screenH)
-            }
-        }.start()
 
         registerReceiver(userPresent, IntentFilter(Intent.ACTION_USER_PRESENT))
         registered = true
@@ -160,6 +157,8 @@ class LockPanelActivity : Activity() {
             } catch (_: Exception) {
             }
         }
+        // Ekran hâlâ kilitliyse ve çubuk modundaysa çubuğu geri getir
+        if (Prefs.mode(this) == Prefs.MODE_BAR) NowBar.showIfLocked(this)
         super.onDestroy()
     }
 }
