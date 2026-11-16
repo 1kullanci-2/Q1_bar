@@ -25,27 +25,115 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 
-/**
- * Kapak odaklı medya paneli. Tek bir kart:
- *  - arka planda kapağın büyütülmüş, bulanık ve karartılmış hâli (renkler kapaktan gelir)
- *  - ortada kapak: çerçevesi kapağın en-boy oranına göre kendiliğinden şekillenir
- *  - sol üst köşede çalan uygulamanın simgesi
- *  - altında şarkı bilgisi, süre çubuğu ve düğmeler
- * Kapak boyutu, panele verilen yüksekliğe göre otomatik ayarlanır.
- */
-class PanelView(context: Context) : FrameLayout(context) {
-
-    var maxCoverDp: Float = 360f
-
-    /** Kapak değişince vurgu rengini dışarıya (ör. saat hapına) bildirir. */
-    var onPalette: ((Int) -> Unit)? = null
+/** Kapaktan renk alan, arkasında kapağın bulanık hâli olan yuvarlak köşeli kart. */
+internal class CoverCard(context: Context) : FrameLayout(context) {
 
     private val radius = context.dpf(28f)
     private val rect = RectF()
     private val src = Rect()
+    private var baseColor = CoverPalette.DEFAULT_BASE
+    private var backdrop: Bitmap? = null
 
-    private val content = LinearLayout(context)
-    private val appText = TextView(context)
+    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val scrimPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bmpPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        val cm = ColorMatrix()
+        cm.setSaturation(1.25f)
+        colorFilter = ColorMatrixColorFilter(cm)
+        alpha = 200
+    }
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = context.dpf(1f)
+        color = Color.argb(40, 255, 255, 255)
+    }
+
+    init {
+        setWillNotDraw(false)
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, radius)
+            }
+        }
+        clipToOutline = true
+    }
+
+    fun setLook(base: Int, bmp: Bitmap?) {
+        baseColor = base
+        backdrop = bmp
+        rebuildScrim()
+        invalidate()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        rebuildScrim()
+    }
+
+    private fun rebuildScrim() {
+        val h = height.toFloat()
+        if (h <= 0f) return
+        scrimPaint.shader = LinearGradient(
+            0f, 0f, 0f, h,
+            intArrayOf(withAlpha(baseColor, 90), withAlpha(baseColor, 175), withAlpha(baseColor, 240)),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP
+        )
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        rect.set(0f, 0f, w, h)
+
+        basePaint.color = baseColor
+        canvas.drawRoundRect(rect, radius, radius, basePaint)
+
+        val bmp = backdrop
+        if (bmp != null && !bmp.isRecycled && bmp.width > 0 && bmp.height > 0 && h > 0f) {
+            val boxRatio = w / h
+            val bmpRatio = bmp.width.toFloat() / bmp.height
+            if (bmpRatio > boxRatio) {
+                val sw = (bmp.height * boxRatio).toInt().coerceAtLeast(1)
+                val l = (bmp.width - sw) / 2
+                src.set(l, 0, l + sw, bmp.height)
+            } else {
+                val sh = (bmp.width / boxRatio).toInt().coerceAtLeast(1)
+                val t = (bmp.height - sh) / 2
+                src.set(0, t, bmp.width, t + sh)
+            }
+            canvas.drawBitmap(bmp, src, rect, bmpPaint)
+        }
+
+        canvas.drawRoundRect(rect, radius, radius, scrimPaint)
+        canvas.drawRoundRect(rect, radius, radius, strokePaint)
+    }
+}
+
+/**
+ * Medya paneli, iki ayrı çerçeve:
+ *  - üstte büyük kart: uygulama adı kutucuğu, kapak (oranına göre şekillenir, sol üstte uygulama simgesi),
+ *    şarkı / sanatçı / albüm
+ *  - altta ince kart: süre çubuğu ve önceki / oynat-durdur / sonraki düğmeleri
+ * Kapak boyutu, panele verilen yüksekliğe göre otomatik ayarlanır.
+ */
+class PanelView(context: Context) : LinearLayout(context) {
+
+    var maxCoverDp: Float = 360f
+
+    /** Kapak değişince vurgu rengini dışarıya bildirir. */
+    var onPalette: ((Int) -> Unit)? = null
+
+    /** Uygulama adı kutucuğuna ya da simgesine dokunulunca çağrılır. */
+    var onOpenApp: (() -> Unit)? = null
+
+    private val cardTop = CoverCard(context)
+    private val cardBottom = CoverCard(context)
+
+    private val topContent = LinearLayout(context)
+    private val bottomContent = LinearLayout(context)
+
+    private val appChip = TextView(context)
     private val coverBox = FrameLayout(context)
     private val art = ImageView(context)
     private val badge = ImageView(context)
@@ -71,20 +159,6 @@ class PanelView(context: Context) : FrameLayout(context) {
         setColor(CoverPalette.DEFAULT_ACCENT)
     }
 
-    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val scrimPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val bmpPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-        val cm = ColorMatrix()
-        cm.setSaturation(1.25f)
-        colorFilter = ColorMatrixColorFilter(cm)
-        alpha = 200
-    }
-    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = context.dpf(1f)
-        color = Color.argb(40, 255, 255, 255)
-    }
-
     private val listener: () -> Unit = { render() }
 
     private val ticker = object : Runnable {
@@ -95,32 +169,46 @@ class PanelView(context: Context) : FrameLayout(context) {
     }
 
     init {
-        setWillNotDraw(false)
+        orientation = VERTICAL
         isClickable = true
-        outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, radius)
+        buildTop()
+        buildBottom()
+        addView(
+            cardTop,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
+        addView(
+            cardBottom,
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = context.dpi(10f)
             }
-        }
-        clipToOutline = true
-        buildContent()
-        addView(content, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        )
     }
 
-    private fun buildContent() {
-        content.orientation = LinearLayout.VERTICAL
-        content.setPadding(context.dpi(20f), context.dpi(16f), context.dpi(20f), context.dpi(18f))
+    private fun buildTop() {
+        topContent.orientation = LinearLayout.VERTICAL
+        topContent.setPadding(context.dpi(20f), context.dpi(16f), context.dpi(20f), context.dpi(18f))
 
-        appText.setTextColor(Color.argb(210, 255, 255, 255))
-        appText.textSize = 12f
-        appText.letterSpacing = 0.08f
-        appText.maxLines = 1
-        content.addView(
-            appText,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // uygulama adı: yuvarlak köşeli küçük kutucuk
+        val chipBg = GradientDrawable()
+        chipBg.cornerRadius = context.dpf(12f)
+        chipBg.setColor(Color.argb(55, 255, 255, 255))
+        chipBg.setStroke(context.dpi(1f), Color.argb(60, 255, 255, 255))
+        appChip.background = chipBg
+        appChip.setTextColor(Color.WHITE)
+        appChip.textSize = 12f
+        appChip.typeface = Typeface.DEFAULT_BOLD
+        appChip.letterSpacing = 0.04f
+        appChip.maxLines = 1
+        appChip.ellipsize = TextUtils.TruncateAt.END
+        appChip.setPadding(context.dpi(12f), context.dpi(6f), context.dpi(12f), context.dpi(6f))
+        appChip.setOnClickListener { onOpenApp?.invoke() }
+        topContent.addView(
+            appChip,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
-        // --- kapak ---
+        // kapak
         art.scaleType = ImageView.ScaleType.CENTER_CROP
         art.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
@@ -143,6 +231,7 @@ class PanelView(context: Context) : FrameLayout(context) {
         badge.clipToOutline = true
         badge.elevation = context.dpf(12f)
         badge.visibility = View.GONE
+        badge.setOnClickListener { onOpenApp?.invoke() }
         coverBox.addView(
             badge,
             FrameLayout.LayoutParams(context.dpi(32f), context.dpi(32f), Gravity.TOP or Gravity.START).apply {
@@ -151,7 +240,7 @@ class PanelView(context: Context) : FrameLayout(context) {
             }
         )
         // asıl boyut onMeasure içinde kapağın oranına göre verilir
-        content.addView(
+        topContent.addView(
             coverBox,
             LinearLayout.LayoutParams(0, 0).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -159,7 +248,6 @@ class PanelView(context: Context) : FrameLayout(context) {
             }
         )
 
-        // --- yazılar ---
         title.setTextColor(Color.WHITE)
         title.textSize = 22f
         title.typeface = Typeface.DEFAULT_BOLD
@@ -167,7 +255,7 @@ class PanelView(context: Context) : FrameLayout(context) {
         title.ellipsize = TextUtils.TruncateAt.MARQUEE
         title.marqueeRepeatLimit = -1
         title.isSelected = true
-        content.addView(
+        topContent.addView(
             title,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = context.dpi(16f)
@@ -178,7 +266,7 @@ class PanelView(context: Context) : FrameLayout(context) {
         artist.textSize = 16f
         artist.setSingleLine(true)
         artist.ellipsize = TextUtils.TruncateAt.END
-        content.addView(
+        topContent.addView(
             artist,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = context.dpi(2f)
@@ -189,14 +277,23 @@ class PanelView(context: Context) : FrameLayout(context) {
         album.textSize = 14f
         album.setSingleLine(true)
         album.ellipsize = TextUtils.TruncateAt.END
-        content.addView(
+        topContent.addView(
             album,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = context.dpi(2f)
             }
         )
 
-        // --- süre çubuğu ---
+        cardTop.addView(
+            topContent,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
+    }
+
+    private fun buildBottom() {
+        bottomContent.orientation = LinearLayout.VERTICAL
+        bottomContent.setPadding(context.dpi(20f), context.dpi(12f), context.dpi(20f), context.dpi(10f))
+
         val timeRow = LinearLayout(context)
         timeRow.orientation = LinearLayout.HORIZONTAL
         timeRow.gravity = Gravity.CENTER_VERTICAL
@@ -222,37 +319,34 @@ class PanelView(context: Context) : FrameLayout(context) {
             timeTotal,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
-        content.addView(
+        bottomContent.addView(
             timeRow,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = context.dpi(14f)
-            }
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
-        // --- düğmeler ---
         val btnRow = LinearLayout(context)
         btnRow.orientation = LinearLayout.HORIZONTAL
         btnRow.gravity = Gravity.CENTER
-        styleButton(btnPrev, R.drawable.ic_prev, 14f)
-        styleButton(btnPlay, R.drawable.ic_play, 18f)
-        styleButton(btnNext, R.drawable.ic_next, 14f)
+        styleButton(btnPrev, R.drawable.ic_prev, 11f)
+        styleButton(btnPlay, R.drawable.ic_play, 14f)
+        styleButton(btnNext, R.drawable.ic_next, 11f)
         btnPlay.background = playBg
         btnPlay.setColorFilter(0xFF10131C.toInt())
-        val side = context.dpi(56f)
-        val mid = context.dpi(72f)
+        val side = context.dpi(48f)
+        val mid = context.dpi(60f)
         btnRow.addView(btnPrev, LinearLayout.LayoutParams(side, side))
         btnRow.addView(
             btnPlay,
             LinearLayout.LayoutParams(mid, mid).apply {
-                leftMargin = context.dpi(22f)
-                rightMargin = context.dpi(22f)
+                leftMargin = context.dpi(24f)
+                rightMargin = context.dpi(24f)
             }
         )
         btnRow.addView(btnNext, LinearLayout.LayoutParams(side, side))
-        content.addView(
+        bottomContent.addView(
             btnRow,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = context.dpi(6f)
+                topMargin = context.dpi(2f)
             }
         )
 
@@ -272,6 +366,11 @@ class PanelView(context: Context) : FrameLayout(context) {
             val tc = MediaRepo.controller?.transportControls
             if (MediaRepo.info?.isPlaying == true) tc?.pause() else tc?.play()
         }
+
+        cardBottom.addView(
+            bottomContent,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
     }
 
     private fun styleButton(b: ImageButton, res: Int, padDp: Float) {
@@ -320,50 +419,6 @@ class PanelView(context: Context) : FrameLayout(context) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        rebuildScrim()
-    }
-
-    private fun rebuildScrim() {
-        val h = height.toFloat()
-        if (h <= 0f) return
-        scrimPaint.shader = LinearGradient(
-            0f, 0f, 0f, h,
-            intArrayOf(withAlpha(baseColor, 70), withAlpha(baseColor, 160), withAlpha(baseColor, 238)),
-            floatArrayOf(0f, 0.5f, 1f),
-            Shader.TileMode.CLAMP
-        )
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        val w = width.toFloat()
-        val h = height.toFloat()
-        rect.set(0f, 0f, w, h)
-
-        basePaint.color = baseColor
-        canvas.drawRoundRect(rect, radius, radius, basePaint)
-
-        val bmp = backdrop
-        if (bmp != null && !bmp.isRecycled && bmp.width > 0 && bmp.height > 0 && h > 0f) {
-            val boxRatio = w / h
-            val bmpRatio = bmp.width.toFloat() / bmp.height
-            if (bmpRatio > boxRatio) {
-                val sw = (bmp.height * boxRatio).toInt().coerceAtLeast(1)
-                val l = (bmp.width - sw) / 2
-                src.set(l, 0, l + sw, bmp.height)
-            } else {
-                val sh = (bmp.width / boxRatio).toInt().coerceAtLeast(1)
-                val t = (bmp.height - sh) / 2
-                src.set(0, t, bmp.width, t + sh)
-            }
-            canvas.drawBitmap(bmp, src, rect, bmpPaint)
-        }
-
-        canvas.drawRoundRect(rect, radius, radius, scrimPaint)
-        canvas.drawRoundRect(rect, radius, radius, strokePaint)
-    }
-
     private fun placeholderArt() = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
         intArrayOf(0xFF4A5675.toInt(), 0xFF262B3D.toInt())
@@ -386,8 +441,8 @@ class PanelView(context: Context) : FrameLayout(context) {
         accentColor = CoverPalette.accent(b)
         seek.accent = accentColor
         playBg.setColor(accentColor)
-        rebuildScrim()
-        invalidate()
+        cardTop.setLook(baseColor, backdrop)
+        cardBottom.setLook(baseColor, backdrop)
         onPalette?.invoke(accentColor)
     }
 
@@ -402,7 +457,7 @@ class PanelView(context: Context) : FrameLayout(context) {
     fun render() {
         val i = MediaRepo.info
         if (i == null) {
-            appText.text = "MEDYA PANELİ"
+            appChip.text = "Medya Paneli"
             title.text = "Çalan bir şey yok"
             artist.text = "Bir müzik uygulamasında şarkı başlat"
             artist.visibility = View.VISIBLE
@@ -417,7 +472,7 @@ class PanelView(context: Context) : FrameLayout(context) {
             return
         }
 
-        appText.text = i.appName.uppercase()
+        appChip.text = i.appName
         title.text = i.title.ifBlank { "Bilinmeyen parça" }
         artist.text = i.artist
         artist.visibility = if (i.artist.isBlank()) View.GONE else View.VISIBLE

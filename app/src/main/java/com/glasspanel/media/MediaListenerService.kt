@@ -65,10 +65,7 @@ class MediaListenerService : NotificationListenerService() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Intent.ACTION_SCREEN_ON -> showForLock()
-                Intent.ACTION_SCREEN_OFF, Intent.ACTION_USER_PRESENT -> NowBar.hide()
-            }
+            if (intent.action == Intent.ACTION_SCREEN_ON) showForLock()
         }
     }
 
@@ -85,8 +82,6 @@ class MediaListenerService : NotificationListenerService() {
         if (!receiverRegistered) {
             val f = IntentFilter()
             f.addAction(Intent.ACTION_SCREEN_ON)
-            f.addAction(Intent.ACTION_SCREEN_OFF)
-            f.addAction(Intent.ACTION_USER_PRESENT)
             registerReceiver(screenReceiver, f)
             receiverRegistered = true
         }
@@ -125,7 +120,6 @@ class MediaListenerService : NotificationListenerService() {
             }
             receiverRegistered = false
         }
-        NowBar.hide()
         MediaRepo.removeListener(widgetListener)
         MediaRepo.publish(null, null)
         MediaWidgetProvider.refresh(this)
@@ -243,21 +237,13 @@ class MediaListenerService : NotificationListenerService() {
         }
     }
 
-    /** Kilit ekranında gösterilecek şeyi (alt çubuk ya da tam panel) hemen gösterir. */
+    /** Kilit ekranındayken tam paneli hemen açar. */
     private fun showForLock() {
-        val mode = Prefs.mode(this)
-        if (mode == Prefs.MODE_OFF) return
+        if (!Prefs.lockPanel(this)) return
         val i = MediaRepo.info ?: return
         if (Prefs.onlyWhilePlaying(this) && !i.isPlaying) return
         val km = getSystemService(KeyguardManager::class.java)
         if (km == null || !km.isKeyguardLocked) return
-        val interactive = getSystemService(PowerManager::class.java)?.isInteractive ?: true
-
-        if (mode == Prefs.MODE_BAR && NowBar.canShow(this)) {
-            if (interactive) NowBar.show(this)
-            return
-        }
-        // Çubuk için izin yoksa ya da tam panel seçiliyse tam paneli aç
         launchPanel(i)
     }
 
