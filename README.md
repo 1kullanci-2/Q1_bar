@@ -9,17 +9,21 @@
 - İnce ana ekran widget'ı: kapak, şarkı, sanatçı, süre çubuğu, karıştır / tekrar, önceki / oynat-durdur / sonraki
 - Veriyi bildirim erişimi ile medya oturumlarından okur
 
-## Derleme
+## Derleme ve güncelleme
 
-GitHub'a gönderince **Actions** sekmesinde "APK derle" çalışır. Bittiğinde çalıştırmanın altındaki
-**medya-paneli-apk** dosyasını indir, içinden `app-debug.apk` çıkar.
+GitHub'a gönderince **Actions** sekmesinde "APK derle" çalışır. `KEYSTORE_BASE64` gizli kaydı varsa APK sabit anahtarla
+imzalanır ve **Releases** altında yeni sürüm olarak yayınlanır (sürüm numarası = çalıştırma sırası). Uygulama kendi içinden
+son sürümü denetler, indirir ve kurar; izinler ve ayarlar korunur. Bunun için depo herkese açık olmalıdır.
 
 ## Kurulum sonrası
 
-1. Uygulamayı aç, **Bildirim erişimi**ni aç.
-2. **Diğer uygulamaların üstünde göster** iznini aç.
-3. Pil kısıtlamasını kaldır ve (Huawei) başlatma ayarlarında Otomatik başlat, İkincil başlat, Arka planda çalış seçeneklerini aç.
-4. Müzik çal, ekranı kapat, tekrar aç.
+İlk açılışta kurulum sihirbazı izinleri tek tek anlatır ve doğru ayar ekranını açar
+(bildirim erişimi, üstünde göster, pil, Huawei başlatma). Sonradan ana ekrandan yeniden çalıştırılabilir.
+
+## Kurulum sayacı (isteğe bağlı)
+
+`worker/index.js` bir Cloudflare Worker'dır (KV bağlaması: `KV`). Adresi `Config.COUNTER_URL` içine yazınca uygulama
+ilk açılışta anonim bir kimlik bildirir. Sayıyı görmek için Hakkında ekranında sürüm yazısına 7 kez dokun.
 
 ## Lisanslar
 

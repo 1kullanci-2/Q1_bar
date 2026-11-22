@@ -1,33 +1,29 @@
 package com.glasspanel.media
 
-import android.Manifest
-import android.app.Activity
-import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
-import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextClock
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.radiobutton.MaterialRadioButton
+import com.google.android.material.slider.Slider
+import java.io.File
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
 
     private lateinit var banner: TextView
     private lateinit var notifStatus: TextView
@@ -39,23 +35,54 @@ class MainActivity : Activity() {
     private lateinit var sizeLabel: TextView
     private var previewAccent = CoverPalette.DEFAULT_ACCENT
 
+    // güncelleme kartı
+    private lateinit var updTitle: TextView
+    private lateinit var updInfo: TextView
+    private lateinit var updProgress: LinearProgressIndicator
+    private lateinit var updBtn: MaterialButton
+    private var pendingRelease: Updater.Release? = null
+    private var pendingApk: File? = null
+    private var busy = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        InstallCounter.register(this)
+        if (!Prefs.setupDone(this)) {
+            startActivity(Intent(this, SetupActivity::class.java))
+        }
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
         root.setPadding(dpi(18f), dpi(28f), dpi(18f), dpi(36f))
 
-        root.addView(text("Medya Paneli", 30f, Color.WHITE, bold = true))
+        root.addView(Ui.text(this, "Medya Paneli", 30f, bold = true))
         root.addView(
-            text("Çalan müziği kilit ekranında ve ana ekranda şık bir panelle gösterir.", 14f, Color.argb(160, 255, 255, 255)),
-            lp(top = 4f)
+            Ui.soft(this, "Çalan müziği kilit ekranında ve ana ekranda şık bir panelle gösterir.", 14f),
+            Ui.lp(this, 4f)
         )
 
         // Durum şeridi
-        banner = text("", 14f, Color.WHITE, bold = true)
+        banner = Ui.text(this, "", 14f, bold = true)
         banner.setPadding(dpi(16f), dpi(14f), dpi(16f), dpi(14f))
-        root.addView(banner, lp(top = 18f))
+        root.addView(banner, Ui.lp(this, 18f))
+
+        // ---- Güncelleme ----
+        val upd = Ui.card(this, root, 12f)
+        updTitle = Ui.text(this, "Güncelleme", 16f, bold = true)
+        updInfo = Ui.soft(this, "Sürüm ${BuildConfig.VERSION_NAME}")
+        updProgress = LinearProgressIndicator(this)
+        updProgress.max = 100
+        updProgress.trackThickness = dpi(6f)
+        updProgress.trackCornerRadius = dpi(3f)
+        updProgress.setIndicatorColor(getColor(R.color.green_ok))
+        updProgress.trackColor = getColor(R.color.surface_var)
+        updProgress.visibility = View.GONE
+        updBtn = Ui.filled(this, "Güncellemeyi denetle") { onUpdateButton() }
+        upd.addView(updTitle)
+        upd.addView(updInfo, Ui.lp(this, 2f))
+        upd.addView(updProgress, Ui.lp(this, 12f))
+        upd.addView(updBtn, Ui.lp(this, 14f))
 
         // Önizleme
         panel = PanelView(this)
@@ -70,72 +97,60 @@ class MainActivity : Activity() {
             panel,
             FrameLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL)
         )
-        root.addView(section("ÖNİZLEME"), lp(top = 24f))
-        root.addView(previewWrap, lp(top = 10f))
+        root.addView(Ui.section(this, "ÖNİZLEME"), Ui.lp(this, 24f))
+        root.addView(previewWrap, Ui.lp(this, 10f))
 
         // ---- Kurulum ----
-        root.addView(section("KURULUM"), lp(top = 26f))
-        val setup = card()
-        notifStatus = pill()
-        overlayStatus = pill()
-        batteryStatus = pill()
+        root.addView(Ui.section(this, "KURULUM"), Ui.lp(this, 26f))
+        val setup = Ui.card(this, root, 8f)
+        notifStatus = TextView(this)
+        overlayStatus = TextView(this)
+        batteryStatus = TextView(this)
         setup.addView(
-            row("Bildirim erişimi", "Şarkı, kapak ve süreyi okumak için gerekli", notifStatus) {
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            Ui.row(this, "Bildirim erişimi", "Şarkı, kapak ve süreyi okumak için gerekli", notifStatus) {
+                Perms.openNotificationAccess(this)
             }
         )
-        setup.addView(divider())
+        setup.addView(Ui.divider(this))
         setup.addView(
-            row("Diğer uygulamaların üstünde göster", "Panelin kilit ekranında kendiliğinden açılması için", overlayStatus) {
-                startActivity(
-                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-                )
+            Ui.row(this, "Diğer uygulamaların üstünde göster", "Panelin kilit ekranında kendiliğinden açılması için", overlayStatus) {
+                Perms.openOverlay(this)
             }
         )
-        setup.addView(divider())
+        setup.addView(Ui.divider(this))
         setup.addView(
-            row("Pil kısıtlaması yok", "Telefonun uygulamayı arka planda kapatmaması için", batteryStatus) {
-                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            Ui.row(this, "Pil kısıtlaması yok", "Telefonun uygulamayı arka planda kapatmaması için", batteryStatus) {
+                Perms.openBattery(this)
             }
         )
-        setup.addView(divider())
+        setup.addView(Ui.divider(this))
         setup.addView(
-            row(
+            Ui.row(
+                this,
                 "Huawei başlatma ayarları",
                 "Otomatik yönet kapalı; Otomatik başlat, İkincil başlat ve Arka planda çalış açık olsun",
                 null
-            ) { openStartupSettings() }
+            ) { Perms.openStartupSettings(this) }
         )
-        root.addView(setup, lp(top = 8f))
+        setup.addView(Ui.divider(this))
+        setup.addView(
+            Ui.row(this, "Kurulum sihirbazı", "İzinleri adım adım yeniden gözden geçir", null) {
+                startActivity(Intent(this, SetupActivity::class.java))
+            }
+        )
 
         // ---- Kilit ekranı ----
-        root.addView(section("KİLİT EKRANI"), lp(top = 24f))
-        val lock = card()
-
-        val swLock = Switch(this)
-        swLock.text = "Müzik çalınca paneli otomatik aç"
-        swLock.setTextColor(Color.WHITE)
-        swLock.textSize = 15f
-        swLock.isChecked = Prefs.lockPanel(this)
-        swLock.setOnCheckedChangeListener { _, v -> Prefs.setLockPanel(this, v) }
-        lock.addView(swLock)
-
-        val swPlaying = Switch(this)
-        swPlaying.text = "Sadece müzik çalarken göster"
-        swPlaying.setTextColor(Color.WHITE)
-        swPlaying.textSize = 15f
-        swPlaying.isChecked = Prefs.onlyWhilePlaying(this)
-        swPlaying.setOnCheckedChangeListener { _, v -> Prefs.setOnlyWhilePlaying(this, v) }
-        lock.addView(swPlaying, lp(top = 14f))
-
-        lock.addView(button("Paneli şimdi aç (deneme)") {
+        root.addView(Ui.section(this, "KİLİT EKRANI"), Ui.lp(this, 24f))
+        val lock = Ui.card(this, root, 8f)
+        lock.addView(switchRow("Müzik çalınca paneli otomatik aç", Prefs.lockPanel(this)) { Prefs.setLockPanel(this, it) })
+        lock.addView(switchRow("Sadece müzik çalarken göster", Prefs.onlyWhilePlaying(this)) { Prefs.setOnlyWhilePlaying(this, it) })
+        lock.addView(Ui.outlined(this, "Paneli şimdi aç (deneme)") {
             startActivity(Intent(this, LockPanelActivity::class.java))
-        }, lp(top = 16f))
-        root.addView(lock, lp(top = 8f))
+        }, Ui.lp(this, 12f))
 
         // ---- Saat ----
-        root.addView(section("SAAT"), lp(top = 24f))
-        val clock = card()
+        root.addView(Ui.section(this, "SAAT"), Ui.lp(this, 24f))
+        val clock = Ui.card(this, root, 8f)
 
         previewTime = TextClock(this)
         previewTime.setTextColor(Color.WHITE)
@@ -159,20 +174,20 @@ class MainActivity : Activity() {
         )
         val clockBg = GradientDrawable()
         clockBg.cornerRadius = dpf(16f)
-        clockBg.setColor(Color.parseColor("#0E1015"))
+        clockBg.setColor(Color.parseColor("#1E2535"))
         clockBox.background = clockBg
         clockBox.setPadding(dpi(12f), dpi(18f), dpi(12f), dpi(18f))
-        clock.addView(clockBox, lp())
+        clock.addView(clockBox, Ui.lp(this))
 
-        clock.addView(text("Yazı tipi", 15f, Color.WHITE, bold = true), lp(top = 16f))
+        clock.addView(Ui.text(this, "Yazı tipi", 15f, bold = true), Ui.lp(this, 16f))
         val fontGroup = RadioGroup(this)
         fontGroup.orientation = RadioGroup.VERTICAL
         val radios = ArrayList<RadioButton>()
         for (idx in ClockStyle.FONT_NAMES.indices) {
-            val r = RadioButton(this)
+            val r = MaterialRadioButton(this)
             r.id = View.generateViewId()
             r.text = ClockStyle.FONT_NAMES[idx] + "   ·   12:45"
-            r.setTextColor(Color.WHITE)
+            r.setTextColor(getColor(R.color.ink))
             r.textSize = 17f
             r.typeface = ClockStyle.dateFont(this, idx)
             fontGroup.addView(r)
@@ -186,81 +201,76 @@ class MainActivity : Activity() {
                 applyClockPreview()
             }
         }
-        clock.addView(fontGroup, lp(top = 4f))
+        clock.addView(fontGroup, Ui.lp(this, 4f))
 
-        sizeLabel = text("", 15f, Color.WHITE, bold = true)
-        clock.addView(sizeLabel, lp(top = 14f))
-        val sizeBar = SeekBar(this)
-        sizeBar.max = 60
-        sizeBar.progress = Prefs.clockSize(this).coerceIn(70, 130) - 70
-        sizeBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    Prefs.setClockSize(this@MainActivity, p + 70)
-                    applyClockPreview()
-                }
+        sizeLabel = Ui.text(this, "", 15f, bold = true)
+        clock.addView(sizeLabel, Ui.lp(this, 14f))
+        val slider = Slider(this)
+        slider.valueFrom = 70f
+        slider.valueTo = 130f
+        slider.stepSize = 1f
+        slider.value = Prefs.clockSize(this).coerceIn(70, 130).toFloat()
+        slider.addOnChangeListener { _, v, fromUser ->
+            if (fromUser) {
+                Prefs.setClockSize(this, v.toInt())
+                applyClockPreview()
             }
+        }
+        clock.addView(slider, Ui.lp(this, 2f))
 
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        clock.addView(switchRow("Tarihi göster", Prefs.showDate(this)) {
+            Prefs.setShowDate(this, it)
+            applyClockPreview()
         })
-        clock.addView(sizeBar, lp(top = 2f))
-
-        val swDate = Switch(this)
-        swDate.text = "Tarihi göster"
-        swDate.setTextColor(Color.WHITE)
-        swDate.textSize = 15f
-        swDate.isChecked = Prefs.showDate(this)
-        swDate.setOnCheckedChangeListener { _, v ->
-            Prefs.setShowDate(this, v)
+        clock.addView(switchRow("24 saatlik gösterim", Prefs.clock24(this)) {
+            Prefs.setClock24(this, it)
             applyClockPreview()
-        }
-        clock.addView(swDate, lp(top = 14f))
-
-        val sw24 = Switch(this)
-        sw24.text = "24 saatlik gösterim"
-        sw24.setTextColor(Color.WHITE)
-        sw24.textSize = 15f
-        sw24.isChecked = Prefs.clock24(this)
-        sw24.setOnCheckedChangeListener { _, v ->
-            Prefs.setClock24(this, v)
-            applyClockPreview()
-        }
-        clock.addView(sw24, lp(top = 14f))
-        root.addView(clock, lp(top = 8f))
+        })
 
         // ---- Widget ----
-        root.addView(section("WİDGET"), lp(top = 24f))
-        val widget = card()
-        widget.addView(text("Ana ekran widget'ı", 16f, Color.WHITE, bold = true))
+        root.addView(Ui.section(this, "WİDGET"), Ui.lp(this, 24f))
+        val widget = Ui.card(this, root, 8f)
+        widget.addView(Ui.text(this, "Ana ekran widget'ı", 16f, bold = true))
         widget.addView(
-            note(
+            Ui.soft(
+                this,
                 "Ana ekranda boş bir yere uzun bas, Widget'lar'dan Medya Paneli'ni seç. " +
                     "Kapaktan renk alan ince bir çubuk gelir: kapak, şarkı, sanatçı, süre çubuğu, " +
                     "karıştır / tekrar ve önceki / oynat-durdur / sonraki. Dokununca çalan müzik uygulaması açılır. " +
                     "Karıştır ve tekrar, müzik uygulaması bu düğmeleri paylaşıyorsa çalışır; paylaşmıyorsa soluk görünür."
             ),
-            lp(top = 4f)
+            Ui.lp(this, 4f)
         )
-        root.addView(widget, lp(top = 8f))
 
-        root.addView(
-            note("Yazı tipleri: Outfit, Fraunces, Space Grotesk (SIL Open Font License)"),
-            lp(top = 20f)
-        )
+        // ---- Hakkında ----
+        root.addView(Ui.section(this, "UYGULAMA"), Ui.lp(this, 24f))
+        val about = Ui.card(this, root, 8f)
+        about.addView(Ui.row(this, "Hakkında", "Sürüm ${BuildConfig.VERSION_NAME} · yapımcı ve proje", null) {
+            startActivity(Intent(this, AboutActivity::class.java))
+        })
 
         val scroll = ScrollView(this)
-        scroll.setBackgroundColor(Color.parseColor("#0E1015"))
+        scroll.setBackgroundColor(getColor(R.color.bg))
         scroll.addView(root)
         setContentView(scroll)
 
         applyClockPreview()
 
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        // açılışta (en fazla 6 saatte bir) sessizce güncelleme bak
+        if (System.currentTimeMillis() - Prefs.lastUpdateCheck(this) > 6 * 3600 * 1000L) {
+            checkUpdate(manual = false)
         }
+    }
+
+    private fun switchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit): MaterialSwitch {
+        val s = MaterialSwitch(this)
+        s.text = label
+        s.setTextColor(getColor(R.color.ink))
+        s.textSize = 15f
+        s.isChecked = checked
+        s.setOnCheckedChangeListener { _, v -> onChange(v) }
+        s.layoutParams = Ui.lp(this, 6f)
+        return s
     }
 
     private fun applyClockPreview() {
@@ -269,16 +279,84 @@ class MainActivity : Activity() {
         sizeLabel.text = "Saat boyutu: %" + Prefs.clockSize(this)
     }
 
+    // ---- güncelleme ----
+
+    private fun onUpdateButton() {
+        if (busy) return
+        val r = pendingRelease
+        if (r == null) checkUpdate(manual = true) else downloadAndInstall(r)
+    }
+
+    private fun checkUpdate(manual: Boolean) {
+        if (busy) return
+        busy = true
+        if (manual) {
+            updInfo.text = "Denetleniyor…"
+            updBtn.isEnabled = false
+        }
+        Net.async({ Updater.check() }) { res ->
+            busy = false
+            updBtn.isEnabled = true
+            Prefs.setLastUpdateCheck(this, System.currentTimeMillis())
+            res.onSuccess { r ->
+                pendingRelease = r
+                if (r != null) {
+                    updTitle.text = "Yeni sürüm var"
+                    updInfo.text = "${r.name} hazır (${"%.1f".format(r.size / 1048576.0)} MB). Ayarların ve izinlerin korunur."
+                    updBtn.text = "İndir ve kur"
+                } else {
+                    updTitle.text = "Güncelleme"
+                    updInfo.text = "Sürüm ${BuildConfig.VERSION_NAME}" + if (manual) " · en güncel sürümdesin" else ""
+                    updBtn.text = "Güncellemeyi denetle"
+                }
+            }
+            res.onFailure {
+                if (manual) updInfo.text = "Denetlenemedi. İnternet bağlantını kontrol et (depo herkese açık olmalı)."
+                else updInfo.text = "Sürüm ${BuildConfig.VERSION_NAME}"
+            }
+        }
+    }
+
+    private fun downloadAndInstall(r: Updater.Release) {
+        busy = true
+        updBtn.isEnabled = false
+        updProgress.visibility = View.VISIBLE
+        updProgress.setProgressCompat(0, false)
+        updInfo.text = "İndiriliyor…"
+        Net.async({
+            Updater.download(applicationContext, r) { p -> runOnUiThread { updProgress.setProgressCompat(p, true) } }
+        }) { res ->
+            busy = false
+            updBtn.isEnabled = true
+            updProgress.visibility = View.GONE
+            res.onSuccess { apk ->
+                updInfo.text = "İndirildi. Kurulum ekranı açılıyor…"
+                tryInstall(apk)
+            }
+            res.onFailure { updInfo.text = "İndirilemedi: ${it.message ?: "bilinmeyen hata"}" }
+        }
+    }
+
+    private fun tryInstall(apk: File) {
+        if (Updater.canInstall(this)) {
+            pendingApk = null
+            Updater.install(this, apk)
+        } else {
+            pendingApk = apk
+            Toast.makeText(this, "Önce bu uygulamaya kurulum izni ver, sonra geri dön", Toast.LENGTH_LONG).show()
+            Updater.openInstallPermission(this)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
-        val notifOn = isNotificationAccessOn()
-        val overlayOn = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(this)
-        val pm = getSystemService(PowerManager::class.java)
-        val batteryOk = pm?.isIgnoringBatteryOptimizations(packageName) ?: false
+        val notifOn = Perms.notificationAccess(this)
+        val overlayOn = Perms.overlay(this)
+        val batteryOk = Perms.battery(this)
 
-        setPill(notifStatus, notifOn)
-        setPill(overlayStatus, overlayOn)
-        setPill(batteryStatus, batteryOk, "Tamam", "Kısıtlı")
+        Ui.setPill(notifStatus, notifOn)
+        Ui.setPill(overlayStatus, overlayOn)
+        Ui.setPill(batteryStatus, batteryOk, "Tamam", "Kısıtlı")
 
         val missing = ArrayList<String>()
         if (!notifOn) missing.add("bildirim erişimi")
@@ -289,12 +367,12 @@ class MainActivity : Activity() {
         } else {
             "Eksik: " + missing.joinToString(", ")
         }
-        val tint = if (ok) Color.parseColor("#7BE0A0") else Color.parseColor("#FFB74D")
+        val tint = getColor(if (ok) R.color.green_ok else R.color.amber)
         banner.setTextColor(tint)
         val bg = GradientDrawable()
-        bg.cornerRadius = dpf(16f)
-        bg.setColor(withAlpha(tint, 34))
-        bg.setStroke(dpi(1f), withAlpha(tint, 90))
+        bg.cornerRadius = dpf(18f)
+        bg.setColor(com.glasspanel.media.withAlpha(tint, 30))
+        bg.setStroke(dpi(1f), com.glasspanel.media.withAlpha(tint, 90))
         banner.background = bg
 
         if (notifOn) {
@@ -303,136 +381,12 @@ class MainActivity : Activity() {
             KeepAliveService.rebind(this)
         }
         panel.render()
-    }
 
-    private fun isNotificationAccessOn(): Boolean {
-        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: return false
-        return flat.split(":").any { ComponentName.unflattenFromString(it)?.packageName == packageName }
-    }
-
-    /** Huawei'nin "Uygulama başlatma" ekranını açmayı dener, olmazsa uygulama ayrıntılarına gider. */
-    private fun openStartupSettings() {
-        val targets = listOf(
-            ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
-            ),
-            ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.optimize.process.ProtectActivity"
-            )
-        )
-        for (c in targets) {
-            try {
-                startActivity(Intent().setComponent(c))
-                return
-            } catch (_: Exception) {
-            }
+        // kurulum izni verilip dönüldüyse indirilmiş APK'yı kur
+        val apk = pendingApk
+        if (apk != null && Updater.canInstall(this)) {
+            pendingApk = null
+            Updater.install(this, apk)
         }
-        try {
-            startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-            )
-        } catch (_: Exception) {
-        }
-    }
-
-    // --- küçük arayüz yardımcıları ---
-
-    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView {
-        val t = TextView(this)
-        t.text = s
-        t.textSize = sp
-        t.setTextColor(color)
-        if (bold) t.typeface = Typeface.DEFAULT_BOLD
-        return t
-    }
-
-    private fun note(s: String) = text(s, 13f, Color.argb(150, 255, 255, 255))
-
-    private fun section(s: String): TextView {
-        val t = text(s, 12f, Color.argb(140, 255, 255, 255), bold = true)
-        t.letterSpacing = 0.1f
-        return t
-    }
-
-    private fun pill(): TextView {
-        val t = TextView(this)
-        t.textSize = 12f
-        t.typeface = Typeface.DEFAULT_BOLD
-        t.setPadding(dpi(12f), dpi(5f), dpi(12f), dpi(5f))
-        return t
-    }
-
-    private fun setPill(t: TextView, on: Boolean, onText: String = "Açık", offText: String = "Kapalı") {
-        t.text = if (on) onText else offText
-        val c = if (on) Color.parseColor("#7BE0A0") else Color.parseColor("#FF8A80")
-        t.setTextColor(c)
-        val bg = GradientDrawable()
-        bg.cornerRadius = dpf(14f)
-        bg.setColor(withAlpha(c, 38))
-        t.background = bg
-    }
-
-    private fun row(title: String, desc: String, status: TextView?, onClick: () -> Unit): LinearLayout {
-        val r = LinearLayout(this)
-        r.orientation = LinearLayout.HORIZONTAL
-        r.gravity = Gravity.CENTER_VERTICAL
-        r.setPadding(0, dpi(12f), 0, dpi(12f))
-        val col = LinearLayout(this)
-        col.orientation = LinearLayout.VERTICAL
-        col.addView(text(title, 15f, Color.WHITE, bold = true))
-        col.addView(note(desc), lp(top = 2f))
-        r.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        if (status != null) {
-            val p = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            p.leftMargin = dpi(12f)
-            r.addView(status, p)
-        } else {
-            val arrow = text("›", 22f, Color.argb(150, 255, 255, 255))
-            val p = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            p.leftMargin = dpi(12f)
-            r.addView(arrow, p)
-        }
-        r.setOnClickListener { onClick() }
-        return r
-    }
-
-    private fun card(): LinearLayout {
-        val c = LinearLayout(this)
-        c.orientation = LinearLayout.VERTICAL
-        c.setPadding(dpi(16f), dpi(16f), dpi(16f), dpi(16f))
-        val bg = GradientDrawable()
-        bg.cornerRadius = dpf(20f)
-        bg.setColor(Color.parseColor("#171A21"))
-        c.background = bg
-        return c
-    }
-
-    private fun divider(): View {
-        val v = View(this)
-        v.setBackgroundColor(Color.argb(30, 255, 255, 255))
-        v.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpi(1f))
-        return v
-    }
-
-    private fun button(label: String, onClick: () -> Unit): Button {
-        val b = Button(this)
-        b.text = label
-        b.setAllCaps(false)
-        b.setTextColor(Color.WHITE)
-        val bg = GradientDrawable()
-        bg.cornerRadius = dpf(14f)
-        bg.setColor(Color.parseColor("#2A3350"))
-        b.background = bg
-        b.setOnClickListener { onClick() }
-        return b
-    }
-
-    private fun lp(top: Float = 0f, bottom: Float = 0f): LinearLayout.LayoutParams {
-        val p = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        p.topMargin = dpi(top)
-        p.bottomMargin = dpi(bottom)
-        return p
     }
 }

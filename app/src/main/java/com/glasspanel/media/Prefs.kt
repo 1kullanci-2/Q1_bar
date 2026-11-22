@@ -25,4 +25,22 @@ object Prefs {
 
     fun clock24(c: Context): Boolean = sp(c).getBoolean("clock_24", true)
     fun setClock24(c: Context, v: Boolean) = sp(c).edit().putBoolean("clock_24", v).apply()
+
+    fun setupDone(c: Context): Boolean = sp(c).getBoolean("setup_done", false)
+    fun setSetupDone(c: Context, v: Boolean) = sp(c).edit().putBoolean("setup_done", v).apply()
+
+    /** Bu kuruluma ait rastgele, anonim kimlik (uygulama silinince yenilenir) */
+    fun installId(c: Context): String {
+        val cur = sp(c).getString("install_id", null)
+        if (cur != null) return cur
+        val id = java.util.UUID.randomUUID().toString()
+        sp(c).edit().putString("install_id", id).apply()
+        return id
+    }
+
+    fun installCounted(c: Context): Boolean = sp(c).getBoolean("install_counted", false)
+    fun setInstallCounted(c: Context, v: Boolean) = sp(c).edit().putBoolean("install_counted", v).apply()
+
+    fun lastUpdateCheck(c: Context): Long = sp(c).getLong("last_update_check", 0L)
+    fun setLastUpdateCheck(c: Context, v: Long) = sp(c).edit().putLong("last_update_check", v).apply()
 }

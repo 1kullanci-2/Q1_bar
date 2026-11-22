@@ -1,10 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="android:Theme.DeviceDefault.NoActionBar">
+    <style name="Base.AppTheme" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#4C7A1B</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#D5EE8A</item>
+        <item name="colorOnPrimaryContainer">#1F2A1C</item>
+        <item name="colorSecondaryContainer">#E4F1B4</item>
+        <item name="colorOnSecondaryContainer">#1F2A1C</item>
+        <item name="colorSurface">#FCF9EF</item>
+        <item name="colorOnSurface">#1F2A1C</item>
+        <item name="colorSurfaceVariant">#ECE6D3</item>
+        <item name="colorOnSurfaceVariant">#5E6B58</item>
+        <item name="colorOutline">#A9A68F</item>
+        <item name="colorOutlineVariant">#E0D9C4</item>
+        <item name="android:colorBackground">#F6F1E4</item>
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <style name="AppTheme" parent="Base.AppTheme" />
 
     <style name="PanelTheme" parent="android:Theme.DeviceDefault.Wallpaper.NoTitleBar">
         <item name="android:windowShowWallpaper">true</item>

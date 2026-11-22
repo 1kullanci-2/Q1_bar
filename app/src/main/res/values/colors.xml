@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#0E1015</color>
+    <color name="bg">#F6F1E4</color>
+    <color name="surface">#FCF9EF</color>
+    <color name="surface_var">#ECE6D3</color>
+    <color name="ink">#1F2A1C</color>
+    <color name="ink_soft">#5E6B58</color>
+    <color name="outline">#E0D9C4</color>
+    <color name="lime">#C9E86A</color>
+    <color name="lime_soft">#E4F1B4</color>
+    <color name="green_ok">#3F7A1C</color>
+    <color name="amber">#B26A00</color>
+    <color name="red_off">#B3402F</color>
 </resources>
