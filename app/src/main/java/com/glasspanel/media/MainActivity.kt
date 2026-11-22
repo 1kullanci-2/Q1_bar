@@ -119,18 +119,9 @@ class MainActivity : AppCompatActivity() {
         )
         setup.addView(Ui.divider(this))
         setup.addView(
-            Ui.row(this, "Pil kısıtlaması yok", "Telefonun uygulamayı arka planda kapatmaması için", batteryStatus) {
+            Ui.row(this, "Pil kısıtlaması yok", "Telefon uygulamayı arka planda kapatmasın. Huawei: Ayarlar > Pil > Uygulama başlatma > Medya Paneli > Otomatik yönet kapalı; Otomatik başlat, İkincil başlat, Arka planda çalış açık", batteryStatus) {
                 Perms.openBattery(this)
             }
-        )
-        setup.addView(Ui.divider(this))
-        setup.addView(
-            Ui.row(
-                this,
-                "Huawei başlatma ayarları",
-                "Otomatik yönet kapalı; Otomatik başlat, İkincil başlat ve Arka planda çalış açık olsun",
-                null
-            ) { Perms.openStartupSettings(this) }
         )
         setup.addView(Ui.divider(this))
         setup.addView(
@@ -174,7 +165,7 @@ class MainActivity : AppCompatActivity() {
         )
         val clockBg = GradientDrawable()
         clockBg.cornerRadius = dpf(16f)
-        clockBg.setColor(Color.parseColor("#1E2535"))
+        clockBg.setColor(Color.parseColor("#22301B"))
         clockBox.background = clockBg
         clockBox.setPadding(dpi(12f), dpi(18f), dpi(12f), dpi(18f))
         clock.addView(clockBox, Ui.lp(this))

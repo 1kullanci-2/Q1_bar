@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#F6F1E4</color>
-    <color name="surface">#FCF9EF</color>
-    <color name="surface_var">#ECE6D3</color>
-    <color name="ink">#1F2A1C</color>
-    <color name="ink_soft">#5E6B58</color>
-    <color name="outline">#E0D9C4</color>
-    <color name="lime">#C9E86A</color>
-    <color name="lime_soft">#E4F1B4</color>
+    <color name="bg">#DCE6C4</color>
+    <color name="surface">#EAF1D6</color>
+    <color name="surface_var">#CFDBB0</color>
+    <color name="ink">#1B2A14</color>
+    <color name="ink_soft">#46583B</color>
+    <color name="outline">#BCCB9A</color>
+    <color name="lime">#AFD64A</color>
+    <color name="lime_soft">#C9E08A</color>
     <color name="green_ok">#3F7A1C</color>
     <color name="amber">#B26A00</color>
     <color name="red_off">#B3402F</color>

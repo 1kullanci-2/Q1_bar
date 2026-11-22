@@ -421,7 +421,7 @@ class PanelView(context: Context) : LinearLayout(context) {
 
     private fun placeholderArt() = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
-        intArrayOf(0xFF4A5675.toInt(), 0xFF262B3D.toInt())
+        intArrayOf(0xFF4F6B3A.toInt(), 0xFF22301B.toInt())
     )
 
     private fun tiny(b: Bitmap): Bitmap? {

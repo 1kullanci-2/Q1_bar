@@ -121,7 +121,7 @@ class AboutActivity : AppCompatActivity() {
                     devBio.text = bio
                     devBio.visibility = View.VISIBLE
                 }
-                devStats.text = "@${j.optString("login", Config.OWNER)}  ·  ${j.optInt("public_repos")} depo  ·  ${j.optInt("followers")} takipçi"
+                devStats.text = "@${j.optString("login", Config.OWNER)}"
                 if (bmp != null) avatar.setImageBitmap(bmp)
             }
             r.onFailure { devStats.text = "@${Config.OWNER}  ·  profil şu an çekilemedi" }

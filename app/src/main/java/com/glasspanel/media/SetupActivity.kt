@@ -76,20 +76,11 @@ class SetupActivity : AppCompatActivity() {
             Step(
                 "Pil kısıtlaması",
                 "Telefon pil tasarrufu için uygulamayı arka planda kapatırsa panel kilit ekranında açılmaz. " +
-                    "Açılan pencerede \"İzin ver\" de; liste açılırsa Medya Paneli için kısıtlamayı kaldır.",
+                    "Açılan pencerede \"İzin ver\" de; liste açılırsa Medya Paneli için kısıtlamayı kaldır. " +
+                    "Huawei kullanıyorsan ayrıca: Ayarlar > Pil > Uygulama başlatma > Medya Paneli > Otomatik yönet'i kapat; Otomatik başlat, İkincil başlat ve Arka planda çalış'ı aç.",
                 "İzin ver", { Perms.battery(this) }, { Perms.openBattery(this) }
             )
         )
-        if (Perms.isHuawei()) {
-            list.add(
-                Step(
-                    "Huawei başlatma ayarları",
-                    "Huawei telefonlar uygulamaları sık sık kapatır. Açılan ekranda Medya Paneli için \"Otomatik yönet\"i kapat; " +
-                        "Otomatik başlat, İkincil başlat ve Arka planda çalış seçeneklerini aç. Bunu uygulama algılayamaz, bitince \"Yaptım\" de.",
-                    "Ayarları aç", null, { Perms.openStartupSettings(this) }
-                )
-            )
-        }
         list.add(
             Step(
                 "Hazırsın",

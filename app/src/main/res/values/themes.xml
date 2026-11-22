@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Base.AppTheme" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">#4C7A1B</item>
+        <item name="colorPrimary">#3D6A12</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#D5EE8A</item>
-        <item name="colorOnPrimaryContainer">#1F2A1C</item>
-        <item name="colorSecondaryContainer">#E4F1B4</item>
-        <item name="colorOnSecondaryContainer">#1F2A1C</item>
-        <item name="colorSurface">#FCF9EF</item>
-        <item name="colorOnSurface">#1F2A1C</item>
-        <item name="colorSurfaceVariant">#ECE6D3</item>
-        <item name="colorOnSurfaceVariant">#5E6B58</item>
-        <item name="colorOutline">#A9A68F</item>
-        <item name="colorOutlineVariant">#E0D9C4</item>
-        <item name="android:colorBackground">#F6F1E4</item>
+        <item name="colorPrimaryContainer">#C2DC7A</item>
+        <item name="colorOnPrimaryContainer">#1B2A14</item>
+        <item name="colorSecondaryContainer">#C9E08A</item>
+        <item name="colorOnSecondaryContainer">#1B2A14</item>
+        <item name="colorSurface">#EAF1D6</item>
+        <item name="colorOnSurface">#1B2A14</item>
+        <item name="colorSurfaceVariant">#CFDBB0</item>
+        <item name="colorOnSurfaceVariant">#46583B</item>
+        <item name="colorOutline">#8FA070</item>
+        <item name="colorOutlineVariant">#BCCB9A</item>
+        <item name="android:colorBackground">#DCE6C4</item>
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>

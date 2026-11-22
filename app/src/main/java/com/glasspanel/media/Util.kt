@@ -20,8 +20,8 @@ fun withAlpha(color: Int, alpha: Int): Int =
 
 /** Kapak resminden koyu bir zemin rengi ve parlak bir vurgu rengi üretir. */
 object CoverPalette {
-    const val DEFAULT_BASE = 0xFF1E2535.toInt()
-    const val DEFAULT_ACCENT = 0xFFA9BBFF.toInt()
+    const val DEFAULT_BASE = 0xFF22301B.toInt()
+    const val DEFAULT_ACCENT = 0xFFC4E566.toInt()
     private const val NEUTRAL_ACCENT = 0xFFEDEFF5.toInt()
 
     private fun average(b: Bitmap): FloatArray? {
