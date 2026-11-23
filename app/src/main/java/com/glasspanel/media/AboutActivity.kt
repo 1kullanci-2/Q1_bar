@@ -95,7 +95,7 @@ class AboutActivity : AppCompatActivity() {
         })
 
         root.addView(
-            Ui.soft(this, "Yazı tipleri: Outfit, Fraunces, Space Grotesk (SIL Open Font License)", 12f),
+            Ui.soft(this, "Yazı tipleri: Outfit, Fraunces, Space Grotesk, Oxanium, Playfair Display, Nunito, Bebas Neue (SIL Open Font License)", 12f),
             Ui.lp(this, 22f)
         )
 

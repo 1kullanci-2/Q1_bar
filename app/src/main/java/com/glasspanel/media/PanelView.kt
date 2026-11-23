@@ -28,7 +28,8 @@ import android.widget.TextView
 /** Kapaktan renk alan, arkasında kapağın bulanık hâli olan yuvarlak köşeli kart. */
 internal class CoverCard(context: Context) : FrameLayout(context) {
 
-    private val radius = context.dpf(28f)
+    private var radius = context.dpf(28f)
+    private var material = false
     private val rect = RectF()
     private val src = Rect()
     private var baseColor = CoverPalette.DEFAULT_BASE
@@ -58,6 +59,22 @@ internal class CoverCard(context: Context) : FrameLayout(context) {
         clipToOutline = true
     }
 
+    fun setMaterial(on: Boolean) {
+        material = on
+        radius = context.dpf(if (on) 32f else 28f)
+        invalidateOutline()
+        invalidate()
+    }
+
+    private fun tonal(c: Int): Int {
+        val t = 0.12f
+        return Color.rgb(
+            (Color.red(c) * (1 - t) + 255 * t).toInt(),
+            (Color.green(c) * (1 - t) + 255 * t).toInt(),
+            (Color.blue(c) * (1 - t) + 255 * t).toInt()
+        )
+    }
+
     fun setLook(base: Int, bmp: Bitmap?) {
         baseColor = base
         backdrop = bmp
@@ -85,6 +102,13 @@ internal class CoverCard(context: Context) : FrameLayout(context) {
         val w = width.toFloat()
         val h = height.toFloat()
         rect.set(0f, 0f, w, h)
+
+        if (material) {
+            // Material: düz, tonal yüzey; bulanık kapak, gradyan ve çerçeve yok
+            basePaint.color = tonal(baseColor)
+            canvas.drawRoundRect(rect, radius, radius, basePaint)
+            return
+        }
 
         basePaint.color = baseColor
         canvas.drawRoundRect(rect, radius, radius, basePaint)
@@ -153,6 +177,8 @@ class PanelView(context: Context) : LinearLayout(context) {
     private var baseColor = CoverPalette.DEFAULT_BASE
     private var accentColor = CoverPalette.DEFAULT_ACCENT
     private var ratio = 1f
+    private var materialOn = false
+    private var artRadius = context.dpf(22f)
 
     private val playBg = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
@@ -212,7 +238,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         art.scaleType = ImageView.ScaleType.CENTER_CROP
         art.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, context.dpf(22f))
+                outline.setRoundRect(0, 0, view.width, view.height, artRadius)
             }
         }
         art.clipToOutline = true
@@ -436,6 +462,40 @@ class PanelView(context: Context) : LinearLayout(context) {
         }
     }
 
+    /** Panel stilini (kapak odaklı / Material) uygular. */
+    private fun applyStyle(on: Boolean) {
+        materialOn = on
+        cardTop.setMaterial(on)
+        cardBottom.setMaterial(on)
+        artRadius = context.dpf(if (on) 26f else 22f)
+        art.invalidateOutline()
+
+        val chipBg = GradientDrawable()
+        if (on) {
+            chipBg.cornerRadius = context.dpf(50f)
+            chipBg.setColor(withAlpha(accentColor, 52))
+        } else {
+            chipBg.cornerRadius = context.dpf(12f)
+            chipBg.setColor(Color.argb(55, 255, 255, 255))
+            chipBg.setStroke(context.dpi(1f), Color.argb(60, 255, 255, 255))
+        }
+        appChip.background = chipBg
+
+        playBg.shape = if (on) GradientDrawable.RECTANGLE else GradientDrawable.OVAL
+        playBg.cornerRadius = context.dpf(22f)
+
+        for (b in listOf(btnPrev, btnNext)) {
+            if (on) {
+                val g = GradientDrawable()
+                g.shape = GradientDrawable.OVAL
+                g.setColor(withAlpha(accentColor, 46))
+                b.background = g
+            } else {
+                b.setBackgroundColor(Color.TRANSPARENT)
+            }
+        }
+    }
+
     private fun applyPalette(b: Bitmap?) {
         baseColor = CoverPalette.base(b)
         accentColor = CoverPalette.accent(b)
@@ -443,6 +503,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         playBg.setColor(accentColor)
         cardTop.setLook(baseColor, backdrop)
         cardBottom.setLook(baseColor, backdrop)
+        if (materialOn) applyStyle(true)
         onPalette?.invoke(accentColor)
     }
 
@@ -455,6 +516,11 @@ class PanelView(context: Context) : LinearLayout(context) {
     }
 
     fun render() {
+        val wantMaterial = Prefs.panelStyle(context) == 1
+        if (wantMaterial != materialOn) {
+            applyStyle(wantMaterial)
+            requestLayout()
+        }
         val i = MediaRepo.info
         if (i == null) {
             appChip.text = "Medya Paneli"

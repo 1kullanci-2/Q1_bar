@@ -7,7 +7,7 @@ import android.widget.TextClock
 
 /** Saat ve tarih için yazı tipleri ve ortak biçimlendirme. */
 object ClockStyle {
-    val FONT_NAMES = listOf("Outfit", "Fraunces", "Space Grotesk")
+    val FONT_NAMES = listOf("Outfit", "Fraunces", "Space Grotesk", "Oxanium", "Playfair Display", "Nunito", "Bebas Neue")
 
     private fun load(ctx: Context, res: Int): Typeface {
         return try {
@@ -22,6 +22,10 @@ object ClockStyle {
         when (idx) {
             1 -> R.font.fraunces_time
             2 -> R.font.grotesk_time
+            3 -> R.font.oxanium_time
+            4 -> R.font.playfair_time
+            5 -> R.font.nunito_time
+            6 -> R.font.bebas_time
             else -> R.font.outfit_time
         }
     )
@@ -31,6 +35,10 @@ object ClockStyle {
         when (idx) {
             1 -> R.font.fraunces_date
             2 -> R.font.grotesk_date
+            3 -> R.font.oxanium_date
+            4 -> R.font.playfair_date
+            5 -> R.font.nunito_date
+            6 -> R.font.bebas_date
             else -> R.font.outfit_date
         }
     )

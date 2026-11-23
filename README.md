@@ -5,7 +5,7 @@
 - Kilit ekranı paneli: iki çerçeve (üstte kapak + şarkı bilgisi, altta süre çubuğu ve düğmeler), renkler kapaktan gelir
 - Kapak çerçevesi kapağın oranına göre şekillenir
 - Uygulama adı kutucuğuna dokununca kilit açtırıp müzik uygulamasına gider
-- Saat için 3 yazı tipi (Outfit, Fraunces, Space Grotesk), boyut, tarih ve 12/24 saat ayarı
+- Saat için 7 yazı tipi, panel için kapak odaklı ya da Material stil, boyut, tarih ve 12/24 saat ayarı
 - İnce ana ekran widget'ı: kapak, şarkı, sanatçı, süre çubuğu, karıştır / tekrar, önceki / oynat-durdur / sonraki
 - Veriyi bildirim erişimi ile medya oturumlarından okur
 
@@ -27,4 +27,4 @@ ilk açılışta anonim bir kimlik bildirir. Sayıyı görmek için Hakkında ek
 
 ## Lisanslar
 
-Yazı tipleri SIL Open Font License altındadır: Outfit, Fraunces, Space Grotesk (bkz. `licenses/`).
+Yazı tipleri SIL Open Font License altındadır: Outfit, Fraunces, Space Grotesk, Oxanium, Playfair Display, Nunito, Bebas Neue (bkz. `licenses/`).

@@ -62,10 +62,16 @@ class MainActivity : AppCompatActivity() {
             Ui.lp(this, 4f)
         )
 
+        // Hakkında (en üstte)
+        val about = Ui.card(this, root, 16f)
+        about.addView(Ui.row(this, "Hakkında", "Sürüm ${BuildConfig.VERSION_NAME} · yapımcı ve proje", null) {
+            startActivity(Intent(this, AboutActivity::class.java))
+        })
+
         // Durum şeridi
         banner = Ui.text(this, "", 14f, bold = true)
         banner.setPadding(dpi(16f), dpi(14f), dpi(16f), dpi(14f))
-        root.addView(banner, Ui.lp(this, 18f))
+        root.addView(banner, Ui.lp(this, 14f))
 
         // ---- Güncelleme ----
         val upd = Ui.card(this, root, 12f)
@@ -135,6 +141,30 @@ class MainActivity : AppCompatActivity() {
         val lock = Ui.card(this, root, 8f)
         lock.addView(switchRow("Müzik çalınca paneli otomatik aç", Prefs.lockPanel(this)) { Prefs.setLockPanel(this, it) })
         lock.addView(switchRow("Sadece müzik çalarken göster", Prefs.onlyWhilePlaying(this)) { Prefs.setOnlyWhilePlaying(this, it) })
+        lock.addView(Ui.text(this, "Panel stili", 15f, bold = true), Ui.lp(this, 14f))
+        val styleGroup = RadioGroup(this)
+        styleGroup.orientation = RadioGroup.VERTICAL
+        val styleNames = listOf("Kapak odaklı (bulanık kapak, cam görünüm)", "Material (düz tonal yüzey, yuvarlak düğmeler)")
+        val styleRadios = ArrayList<RadioButton>()
+        for (n in styleNames) {
+            val r = MaterialRadioButton(this)
+            r.id = View.generateViewId()
+            r.text = n
+            r.setTextColor(getColor(R.color.ink))
+            r.textSize = 15f
+            styleGroup.addView(r)
+            styleRadios.add(r)
+        }
+        styleGroup.check(styleRadios[Prefs.panelStyle(this).coerceIn(0, 1)].id)
+        styleGroup.setOnCheckedChangeListener { _, id ->
+            val idx = styleRadios.indexOfFirst { it.id == id }
+            if (idx >= 0) {
+                Prefs.setPanelStyle(this, idx)
+                panel.render()
+            }
+        }
+        lock.addView(styleGroup, Ui.lp(this, 2f))
+
         lock.addView(Ui.outlined(this, "Paneli şimdi aç (deneme)") {
             startActivity(Intent(this, LockPanelActivity::class.java))
         }, Ui.lp(this, 12f))
@@ -232,13 +262,6 @@ class MainActivity : AppCompatActivity() {
             ),
             Ui.lp(this, 4f)
         )
-
-        // ---- Hakkında ----
-        root.addView(Ui.section(this, "UYGULAMA"), Ui.lp(this, 24f))
-        val about = Ui.card(this, root, 8f)
-        about.addView(Ui.row(this, "Hakkında", "Sürüm ${BuildConfig.VERSION_NAME} · yapımcı ve proje", null) {
-            startActivity(Intent(this, AboutActivity::class.java))
-        })
 
         val scroll = ScrollView(this)
         scroll.setBackgroundColor(getColor(R.color.bg))
