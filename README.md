@@ -7,6 +7,7 @@
 - Uygulama adı kutucuğuna dokununca kilit açtırıp müzik uygulamasına gider
 - Saat için 7 yazı tipi, panel için kapak odaklı ya da Material stil, boyut, tarih ve 12/24 saat ayarı
 - İnce ana ekran widget'ı: kapak, şarkı, sanatçı, süre çubuğu, karıştır / tekrar, önceki / oynat-durdur / sonraki
+- Karıştır, tekrar (liste / tek şarkı) ve beğen düğmeleri; uygulama sırayı paylaşıyorsa "Sırada" satırı ve sıra listesi
 - Veriyi bildirim erişimi ile medya oturumlarından okur
 
 ## Derleme ve güncelleme

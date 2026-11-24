@@ -148,6 +148,8 @@ class PanelView(context: Context) : LinearLayout(context) {
     private val btnPlay = ImageButton(context)
     private val btnNext = ImageButton(context)
     private val btnShuffle = ImageButton(context)
+    private val btnLike = ImageButton(context)
+    private val nextLine = TextView(context)
     private val btnRepeat = ImageButton(context)
 
     private var lastArt: Bitmap? = null
@@ -205,9 +207,24 @@ class PanelView(context: Context) : LinearLayout(context) {
         appChip.ellipsize = TextUtils.TruncateAt.END
         appChip.setPadding(context.dpi(12f), context.dpi(6f), context.dpi(12f), context.dpi(6f))
         appChip.setOnClickListener { onOpenApp?.invoke() }
-        topContent.addView(
+        val topRow = LinearLayout(context)
+        topRow.orientation = LinearLayout.HORIZONTAL
+        topRow.gravity = Gravity.CENTER_VERTICAL
+        topRow.addView(
             appChip,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
+        topRow.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
+        styleButton(btnLike, R.drawable.ic_heart, 7f)
+        btnLike.visibility = View.GONE
+        btnLike.setOnClickListener {
+            Controls.tapLike(context)
+            updateToggles()
+        }
+        topRow.addView(btnLike, LinearLayout.LayoutParams(context.dpi(38f), context.dpi(38f)))
+        topContent.addView(
+            topRow,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
         // kapak
@@ -284,6 +301,17 @@ class PanelView(context: Context) : LinearLayout(context) {
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = context.dpi(2f)
             }
+        )
+
+        nextLine.textSize = 13f
+        nextLine.setSingleLine(true)
+        nextLine.ellipsize = TextUtils.TruncateAt.END
+        nextLine.visibility = View.GONE
+        nextLine.setPadding(0, context.dpi(8f), 0, context.dpi(2f))
+        nextLine.setOnClickListener { showQueue() }
+        topContent.addView(
+            nextLine,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
         cardTop.addView(
@@ -401,6 +429,67 @@ class PanelView(context: Context) : LinearLayout(context) {
         btnShuffle.setColorFilter(if (Controls.shuffle) accentColor else off)
         btnRepeat.setImageResource(if (Controls.repeat == 2) R.drawable.ic_repeat_one else R.drawable.ic_repeat)
         btnRepeat.setColorFilter(if (Controls.repeat == 0) off else accentColor)
+
+        val liked = Controls.liked()
+        if (liked == null) {
+            btnLike.visibility = View.GONE
+        } else {
+            btnLike.visibility = View.VISIBLE
+            btnLike.setImageResource(if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart)
+            btnLike.setColorFilter(if (liked) accentColor else Color.argb(200, 255, 255, 255))
+        }
+        updateQueue()
+    }
+
+    private fun queueItems(): List<android.media.session.MediaSession.QueueItem>? {
+        return try {
+            MediaRepo.controller?.queue?.takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Uygulama sırayı paylaşıyorsa "Sırada: …" satırını gösterir. */
+    private fun updateQueue() {
+        val q = queueItems()
+        if (q == null) {
+            nextLine.visibility = View.GONE
+            return
+        }
+        val active = MediaRepo.controller?.playbackState?.activeQueueItemId ?: -1L
+        val idx = q.indexOfFirst { it.queueId == active }
+        val next = if (idx >= 0 && idx + 1 < q.size) q[idx + 1] else null
+        nextLine.setTextColor(withAlpha(accentColor, 235))
+        nextLine.text = if (next != null) {
+            val d = next.description
+            "Sırada: " + (d.title ?: "?") + (d.subtitle?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: "") + "  ›"
+        } else {
+            "Sırayı göster (${q.size})  ›"
+        }
+        nextLine.visibility = View.VISIBLE
+    }
+
+    private fun showQueue() {
+        val q = queueItems() ?: return
+        val active = MediaRepo.controller?.playbackState?.activeQueueItemId ?: -1L
+        val idx = q.indexOfFirst { it.queueId == active }
+        val labels = q.mapIndexed { n, item ->
+            val d = item.description
+            (if (n == idx) "▶  " else "     ") + (d.title ?: "?") +
+                (d.subtitle?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: "")
+        }.toTypedArray()
+        try {
+            val dlg = android.app.AlertDialog.Builder(context, android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Sıra")
+                .setItems(labels) { _, which ->
+                    MediaRepo.controller?.transportControls?.skipToQueueItem(q[which].queueId)
+                }
+                .setNegativeButton("Kapat", null)
+                .create()
+            dlg.show()
+            if (idx > 2) dlg.listView?.setSelection(idx - 2)
+        } catch (_: Exception) {
+        }
     }
 
     private fun styleButton(b: ImageButton, res: Int, padDp: Float) {
