@@ -100,6 +100,11 @@ class AboutActivity : AppCompatActivity() {
             col2.addView(repoRowDesc, Ui.lp(this, 2f))
         })
 
+        repo.addView(Ui.divider(this))
+        repo.addView(Ui.row(this, "Medya tanı", "Müzik uygulamasının paylaştığı sıra ve düğmeler", null) {
+            startActivity(Intent(this, DiagActivity::class.java))
+        })
+
         root.addView(
             Ui.soft(this, "Yazı tipleri: Outfit, Fraunces, Space Grotesk, Oxanium, Playfair Display, Nunito, Bebas Neue (SIL Open Font License)", 12f),
             Ui.lp(this, 22f)
