@@ -15,7 +15,7 @@ object Updater {
 
     /** Yeni sürüm varsa Release, yoksa null döner. Hata olursa exception fırlatır. */
     fun check(): Release? {
-        val json = JSONObject(Net.getText("https://api.github.com/repos/${Config.OWNER}/${Config.REPO}/releases/latest"))
+        val json = JSONObject(Net.getText("https://api.github.com/repositories/${Config.REPO_ID}/releases/latest"))
         val tag = json.optString("tag_name")
         val code = tag.filter { it.isDigit() }.toIntOrNull() ?: return null
         val assets = json.optJSONArray("assets") ?: return null

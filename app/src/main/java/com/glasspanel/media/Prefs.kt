@@ -26,10 +26,6 @@ object Prefs {
     fun clock24(c: Context): Boolean = sp(c).getBoolean("clock_24", true)
     fun setClock24(c: Context, v: Boolean) = sp(c).edit().putBoolean("clock_24", v).apply()
 
-    /** 0 = kapak odaklı, 1 = Material */
-    fun panelStyle(c: Context): Int = sp(c).getInt("panel_style", 0)
-    fun setPanelStyle(c: Context, v: Int) = sp(c).edit().putInt("panel_style", v).apply()
-
     fun setupDone(c: Context): Boolean = sp(c).getBoolean("setup_done", false)
     fun setSetupDone(c: Context, v: Boolean) = sp(c).edit().putBoolean("setup_done", v).apply()
 

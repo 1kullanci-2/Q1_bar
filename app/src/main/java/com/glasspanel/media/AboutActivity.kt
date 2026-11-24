@@ -27,6 +27,7 @@ class AboutActivity : AppCompatActivity() {
     private lateinit var devName: TextView
     private lateinit var devBio: TextView
     private lateinit var devStats: TextView
+    private lateinit var repoRowDesc: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,8 +72,8 @@ class AboutActivity : AppCompatActivity() {
         top.addView(avatar, LinearLayout.LayoutParams(dpi(64f), dpi(64f)))
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        devName = Ui.text(this, Config.OWNER, 18f, bold = true)
-        devStats = Ui.soft(this, "GitHub profili yükleniyor…")
+        devName = Ui.text(this, Profile.displayName(this), 18f, bold = true)
+        devStats = Ui.soft(this, "@" + Profile.login(this))
         col.addView(devName)
         col.addView(devStats, Ui.lp(this, 2f))
         val cp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -80,18 +81,23 @@ class AboutActivity : AppCompatActivity() {
         top.addView(col, cp)
         card.addView(top)
 
-        devBio = Ui.soft(this, "", 14f)
-        devBio.visibility = View.GONE
+        devBio = Ui.soft(this, Profile.bio(this), 14f)
+        devBio.visibility = if (Profile.bio(this).isBlank()) View.GONE else View.VISIBLE
         card.addView(devBio, Ui.lp(this, 12f))
 
         card.addView(Ui.filled(this, "GitHub profilini aç") {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${Config.OWNER}")))
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Profile.profileUrl(this))))
         }, Ui.lp(this, 16f))
 
         root.addView(Ui.section(this, "PROJE"), Ui.lp(this, 24f))
         val repo = Ui.card(this, root, 8f)
-        repo.addView(Ui.row(this, "Kaynak kodu ve sürümler", "github.com/${Config.OWNER}/${Config.REPO}", null) {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${Config.OWNER}/${Config.REPO}")))
+        repoRowDesc = Ui.soft(this, "github.com/" + Profile.repoFullName(this))
+        repo.addView(Ui.row(this, "Kaynak kodu ve sürümler", "", null) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Profile.repoUrl(this))))
+        }.also { row ->
+            val col2 = row.getChildAt(0) as LinearLayout
+            col2.removeViewAt(1)
+            col2.addView(repoRowDesc, Ui.lp(this, 2f))
         })
 
         root.addView(
@@ -103,28 +109,22 @@ class AboutActivity : AppCompatActivity() {
         scroll.addView(root)
         setContentView(scroll)
 
+        Profile.avatar(this)?.let { avatar.setImageBitmap(it) }
         loadProfile()
     }
 
+    /** Önce son bilinen değerler gösterilir; bağlantı varsa güncel ad, kullanıcı adı ve depo adresi çekilir. */
     private fun loadProfile() {
-        Net.async({
-            val j = JSONObject(Net.getText("https://api.github.com/users/${Config.OWNER}"))
-            val av = j.optString("avatar_url")
-            val bmp = if (av.isNotBlank()) Net.getBitmap("$av&s=200") else null
-            Pair(j, bmp)
-        }) { r ->
-            r.onSuccess { (j, bmp) ->
-                val display = j.optString("name").takeIf { it.isNotBlank() && it != "null" } ?: j.optString("login", Config.OWNER)
-                devName.text = display
-                val bio = j.optString("bio")
-                if (bio.isNotBlank() && bio != "null") {
-                    devBio.text = bio
-                    devBio.visibility = View.VISIBLE
-                }
-                devStats.text = "@${j.optString("login", Config.OWNER)}"
-                if (bmp != null) avatar.setImageBitmap(bmp)
+        Net.async({ Profile.refresh(applicationContext) }) { r ->
+            r.onSuccess {
+                devName.text = Profile.displayName(this)
+                devStats.text = "@" + Profile.login(this)
+                val bio = Profile.bio(this)
+                devBio.text = bio
+                devBio.visibility = if (bio.isBlank()) View.GONE else View.VISIBLE
+                repoRowDesc.text = "github.com/" + Profile.repoFullName(this)
+                Profile.avatar(this)?.let { avatar.setImageBitmap(it) }
             }
-            r.onFailure { devStats.text = "@${Config.OWNER}  ·  profil şu an çekilemedi" }
         }
     }
 

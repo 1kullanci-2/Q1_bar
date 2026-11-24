@@ -26,6 +26,7 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
 
     private lateinit var banner: TextView
+    private lateinit var runPill: TextView
     private lateinit var notifStatus: TextView
     private lateinit var overlayStatus: TextView
     private lateinit var batteryStatus: TextView
@@ -56,7 +57,13 @@ class MainActivity : AppCompatActivity() {
         root.orientation = LinearLayout.VERTICAL
         root.setPadding(dpi(18f), dpi(28f), dpi(18f), dpi(36f))
 
-        root.addView(Ui.text(this, "Medya Paneli", 30f, bold = true))
+        val titleRow = LinearLayout(this)
+        titleRow.orientation = LinearLayout.HORIZONTAL
+        titleRow.gravity = Gravity.CENTER_VERTICAL
+        titleRow.addView(Ui.text(this, "Medya Paneli", 30f, bold = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        runPill = TextView(this)
+        titleRow.addView(runPill, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(titleRow)
         root.addView(
             Ui.soft(this, "Çalan müziği kilit ekranında ve ana ekranda şık bir panelle gösterir.", 14f),
             Ui.lp(this, 4f)
@@ -106,69 +113,11 @@ class MainActivity : AppCompatActivity() {
         root.addView(Ui.section(this, "ÖNİZLEME"), Ui.lp(this, 24f))
         root.addView(previewWrap, Ui.lp(this, 10f))
 
-        // ---- Kurulum ----
-        root.addView(Ui.section(this, "KURULUM"), Ui.lp(this, 26f))
-        val setup = Ui.card(this, root, 8f)
-        notifStatus = TextView(this)
-        overlayStatus = TextView(this)
-        batteryStatus = TextView(this)
-        setup.addView(
-            Ui.row(this, "Bildirim erişimi", "Şarkı, kapak ve süreyi okumak için gerekli", notifStatus) {
-                Perms.openNotificationAccess(this)
-            }
-        )
-        setup.addView(Ui.divider(this))
-        setup.addView(
-            Ui.row(this, "Diğer uygulamaların üstünde göster", "Panelin kilit ekranında kendiliğinden açılması için", overlayStatus) {
-                Perms.openOverlay(this)
-            }
-        )
-        setup.addView(Ui.divider(this))
-        setup.addView(
-            Ui.row(this, "Pil kısıtlaması yok", "Telefon uygulamayı arka planda kapatmasın. Huawei: Ayarlar > Pil > Uygulama başlatma > Medya Paneli > Otomatik yönet kapalı; Otomatik başlat, İkincil başlat, Arka planda çalış açık", batteryStatus) {
-                Perms.openBattery(this)
-            }
-        )
-        setup.addView(Ui.divider(this))
-        setup.addView(
-            Ui.row(this, "Kurulum sihirbazı", "İzinleri adım adım yeniden gözden geçir", null) {
-                startActivity(Intent(this, SetupActivity::class.java))
-            }
-        )
-
         // ---- Kilit ekranı ----
         root.addView(Ui.section(this, "KİLİT EKRANI"), Ui.lp(this, 24f))
         val lock = Ui.card(this, root, 8f)
         lock.addView(switchRow("Müzik çalınca paneli otomatik aç", Prefs.lockPanel(this)) { Prefs.setLockPanel(this, it) })
         lock.addView(switchRow("Sadece müzik çalarken göster", Prefs.onlyWhilePlaying(this)) { Prefs.setOnlyWhilePlaying(this, it) })
-        lock.addView(Ui.text(this, "Panel stili", 15f, bold = true), Ui.lp(this, 14f))
-        val styleGroup = RadioGroup(this)
-        styleGroup.orientation = RadioGroup.VERTICAL
-        val styleNames = listOf("Kapak odaklı (bulanık kapak, cam görünüm)", "Material (düz tonal yüzey, yuvarlak düğmeler)")
-        val styleRadios = ArrayList<RadioButton>()
-        for (n in styleNames) {
-            val r = MaterialRadioButton(this)
-            r.id = View.generateViewId()
-            r.text = n
-            r.setTextColor(getColor(R.color.ink))
-            r.textSize = 15f
-            styleGroup.addView(r)
-            styleRadios.add(r)
-        }
-        styleGroup.check(styleRadios[Prefs.panelStyle(this).coerceIn(0, 1)].id)
-        styleGroup.setOnCheckedChangeListener { _, id ->
-            val idx = styleRadios.indexOfFirst { it.id == id }
-            if (idx >= 0) {
-                Prefs.setPanelStyle(this, idx)
-                panel.render()
-            }
-        }
-        lock.addView(styleGroup, Ui.lp(this, 2f))
-
-        lock.addView(Ui.outlined(this, "Paneli şimdi aç (deneme)") {
-            startActivity(Intent(this, LockPanelActivity::class.java))
-        }, Ui.lp(this, 12f))
-
         // ---- Saat ----
         root.addView(Ui.section(this, "SAAT"), Ui.lp(this, 24f))
         val clock = Ui.card(this, root, 8f)
@@ -256,11 +205,41 @@ class MainActivity : AppCompatActivity() {
             Ui.soft(
                 this,
                 "Ana ekranda boş bir yere uzun bas, Widget'lar'dan Medya Paneli'ni seç. " +
-                    "Kapaktan renk alan ince bir çubuk gelir: kapak, şarkı, sanatçı, süre çubuğu, " +
-                    "karıştır / tekrar ve önceki / oynat-durdur / sonraki. Dokununca çalan müzik uygulaması açılır. " +
-                    "Karıştır ve tekrar, müzik uygulaması bu düğmeleri paylaşıyorsa çalışır; paylaşmıyorsa soluk görünür."
+                    "Tek satırlık ince widget: kapak, şarkı, sanatçı, süre çubuğu ve önceki / oynat-durdur / sonraki. " +
+                    "Widget yana doğru genişletilince karıştır ve tekrar düğmeleri de görünür. " +
+                    "Dokununca çalan müzik uygulaması açılır."
             ),
             Ui.lp(this, 4f)
+        )
+
+        // ---- Kurulum ----
+        root.addView(Ui.section(this, "KURULUM"), Ui.lp(this, 26f))
+        val setup = Ui.card(this, root, 8f)
+        notifStatus = TextView(this)
+        overlayStatus = TextView(this)
+        batteryStatus = TextView(this)
+        setup.addView(
+            Ui.row(this, "Bildirim erişimi", "Şarkı, kapak ve süreyi okumak için gerekli", notifStatus) {
+                Perms.openNotificationAccess(this)
+            }
+        )
+        setup.addView(Ui.divider(this))
+        setup.addView(
+            Ui.row(this, "Diğer uygulamaların üstünde göster", "Panelin kilit ekranında kendiliğinden açılması için", overlayStatus) {
+                Perms.openOverlay(this)
+            }
+        )
+        setup.addView(Ui.divider(this))
+        setup.addView(
+            Ui.row(this, "Pil kısıtlaması yok", "Telefon uygulamayı arka planda kapatmasın. Huawei: Ayarlar > Pil > Uygulama başlatma > Medya Paneli > Otomatik yönet kapalı; Otomatik başlat, İkincil başlat, Arka planda çalış açık", batteryStatus) {
+                Perms.openBattery(this)
+            }
+        )
+        setup.addView(Ui.divider(this))
+        setup.addView(
+            Ui.row(this, "Kurulum sihirbazı", "İzinleri adım adım yeniden gözden geçir", null) {
+                startActivity(Intent(this, SetupActivity::class.java))
+            }
         )
 
         val scroll = ScrollView(this)
@@ -270,10 +249,9 @@ class MainActivity : AppCompatActivity() {
 
         applyClockPreview()
 
-        // açılışta (en fazla 6 saatte bir) sessizce güncelleme bak
-        if (System.currentTimeMillis() - Prefs.lastUpdateCheck(this) > 6 * 3600 * 1000L) {
-            checkUpdate(manual = false)
-        }
+        // her açılışta güncelleme denetimi ve profil/depo adresi yoklaması
+        checkUpdate(manual = false)
+        Net.async({ Profile.refresh(applicationContext) }) { }
     }
 
     private fun switchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit): MaterialSwitch {
@@ -376,18 +354,20 @@ class MainActivity : AppCompatActivity() {
         if (!notifOn) missing.add("bildirim erişimi")
         if (!overlayOn) missing.add("üstünde göster izni")
         val ok = missing.isEmpty()
-        banner.text = if (ok) {
-            "Hazır ✓  Müzik çalınca panel kilit ekranında açılır."
+        Ui.setPill(runPill, ok, "Çalışıyor", "Kurulum eksik")
+        if (ok) {
+            banner.visibility = View.GONE
         } else {
-            "Eksik: " + missing.joinToString(", ")
+            banner.visibility = View.VISIBLE
+            banner.text = "Eksik izin: " + missing.joinToString(", ") + ". Aşağıdaki Kurulum bölümünden verilebilir."
+            val tint = getColor(R.color.amber)
+            banner.setTextColor(tint)
+            val bg = GradientDrawable()
+            bg.cornerRadius = dpf(18f)
+            bg.setColor(com.glasspanel.media.withAlpha(tint, 30))
+            bg.setStroke(dpi(1f), com.glasspanel.media.withAlpha(tint, 90))
+            banner.background = bg
         }
-        val tint = getColor(if (ok) R.color.green_ok else R.color.amber)
-        banner.setTextColor(tint)
-        val bg = GradientDrawable()
-        bg.cornerRadius = dpf(18f)
-        bg.setColor(com.glasspanel.media.withAlpha(tint, 30))
-        bg.setStroke(dpi(1f), com.glasspanel.media.withAlpha(tint, 90))
-        banner.background = bg
 
         if (notifOn) {
             // dinleyiciyi ve arka plan servisini canlandır

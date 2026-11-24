@@ -40,25 +40,25 @@ class SetupActivity : AppCompatActivity() {
         val list = ArrayList<Step>()
         list.add(
             Step(
-                "Hoş geldin",
-                "Medya Paneli, çalan müziği kilit ekranında ve ana ekranda gösterir. " +
-                    "Çalışması için birkaç izne ihtiyacı var. Şimdi sırayla, her birinin ne işe yaradığını anlatıp ilgili ayar ekranını açacağım.",
+                "Hoş geldiniz",
+                "Medya Paneli, çalan müziğin bilgilerini kilit ekranında ve ana ekranda gösterir. " +
+                    "Bu işlevler için aşağıdaki izinler gereklidir. Her adımda iznin ne amaçla kullanıldığı açıklanır.",
                 null, null, null
             )
         )
         list.add(
             Step(
                 "Bildirim erişimi",
-                "Hangi şarkının çaldığını (ad, sanatçı, kapak, süre) telefonun medya bildirimlerinden okumak için gerekir. " +
-                    "Bu izin olmadan panel hiçbir şey gösteremez. Açılan listeden Medya Paneli'ni bulup aç.",
+                "Şarkı adı, sanatçı, kapak görseli ve çalma süresi, telefonun medya bildirimlerinden okunur. " +
+                    "Panelin çalışması için zorunludur. Açılan listede Medya Paneli etkinleştirilmelidir.",
                 "İzin ver", { Perms.notificationAccess(this) }, { Perms.openNotificationAccess(this) }
             )
         )
         list.add(
             Step(
                 "Diğer uygulamaların üstünde göster",
-                "Müzik başlayınca panelin kilit ekranında kendiliğinden açılabilmesi için gerekir. " +
-                    "Kapalıysa panel yalnızca bildirim olarak çıkar. Açılan ekranda Medya Paneli'ni aç.",
+                "Müzik başladığında panelin kilit ekranında otomatik olarak açılmasını sağlar. " +
+                    "İzin verilmezse panel yalnızca bildirim olarak görüntülenir.",
                 "İzin ver", { Perms.overlay(this) }, { Perms.openOverlay(this) }
             )
         )
@@ -66,7 +66,7 @@ class SetupActivity : AppCompatActivity() {
             list.add(
                 Step(
                     "Bildirim gönderme",
-                    "Uygulamanın arka planda hazır kalırken küçük bir sessiz bildirim göstermesi için gerekir.",
+                    "Uygulamanın arka planda çalışır durumda kalmasını sağlayan sessiz bildirimin gösterilmesi için gereklidir.",
                     "İzin ver", { Perms.postNotifications(this) },
                     { requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7) }
                 )
@@ -75,17 +75,18 @@ class SetupActivity : AppCompatActivity() {
         list.add(
             Step(
                 "Pil kısıtlaması",
-                "Telefon pil tasarrufu için uygulamayı arka planda kapatırsa panel kilit ekranında açılmaz. " +
-                    "Açılan pencerede \"İzin ver\" de; liste açılırsa Medya Paneli için kısıtlamayı kaldır. " +
-                    "Huawei kullanıyorsan ayrıca: Ayarlar > Pil > Uygulama başlatma > Medya Paneli > Otomatik yönet'i kapat; Otomatik başlat, İkincil başlat ve Arka planda çalış'ı aç.",
+                "Pil tasarrufu ayarları uygulamayı arka planda kapatabilir; bu durumda panel kilit ekranında açılmaz. " +
+                    "Bu nedenle uygulama için pil kısıtlaması kaldırılmalıdır.\n\n" +
+                    "Huawei cihazlarda ayrıca: Ayarlar > Pil > Uygulama başlatma > Medya Paneli bölümünde “Otomatik yönet” kapatılarak " +
+                    "Otomatik başlat, İkincil başlat ve Arka planda çalış seçenekleri açılmalıdır.",
                 "İzin ver", { Perms.battery(this) }, { Perms.openBattery(this) }
             )
         )
         list.add(
             Step(
-                "Hazırsın",
-                "Müzik çal, ekranı kapatıp tekrar aç: panel kilit ekranında belirir. " +
-                    "Saat yazı tipi, boyut ve diğer ayarları ana ekrandan değiştirebilirsin. Bu sihirbazı istediğin zaman ana ekrandan yeniden çalıştırabilirsin.",
+                "Kurulum tamamlandı",
+                "Müzik çalarken ekran kapatılıp açıldığında panel kilit ekranında görüntülenir. " +
+                    "Saat, yazı tipi ve diğer ayarlar ana ekrandan değiştirilebilir; bu sihirbaz da ana ekrandan yeniden çalıştırılabilir.",
                 null, null, null
             )
         )

@@ -35,9 +35,6 @@ class MediaWidgetProvider : AppWidgetProvider() {
         const val ACTION_SHUFFLE = "com.glasspanel.media.WIDGET_SHUFFLE"
         const val ACTION_REPEAT = "com.glasspanel.media.WIDGET_REPEAT"
 
-        private val SHUFFLE_KEYS = listOf("shuffle", "karıştır", "karistir")
-        private val REPEAT_KEYS = listOf("repeat", "tekrar")
-
         fun refresh(ctx: Context) {
             try {
                 val app = ctx.applicationContext
@@ -74,17 +71,6 @@ class MediaWidgetProvider : AppWidgetProvider() {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-        }
-
-        /** Uygulamanın paylaştığı özel eylemler arasında anahtar kelimeyle eşleşeni bulur. */
-        private fun findCustom(keys: List<String>): PlaybackState.CustomAction? {
-            val st = MediaRepo.controller?.playbackState ?: return null
-            val list = st.customActions
-            for (a in list) {
-                val s = (a.action + " " + (a.name ?: "")).lowercase()
-                if (keys.any { s.contains(it) }) return a
-            }
-            return null
         }
 
         private fun mix(a: Int, b: Int, t: Float): Int {
@@ -187,9 +173,20 @@ class MediaWidgetProvider : AppWidgetProvider() {
                 rv.setProgressBar(R.id.w_progress, 1000, progress, false)
             }
 
-            // karıştır / tekrar: uygulama paylaşmıyorsa soluk görünür
-            rv.setInt(R.id.w_shuffle, "setImageAlpha", if (findCustom(SHUFFLE_KEYS) != null) 255 else 90)
-            rv.setInt(R.id.w_repeat, "setImageAlpha", if (findCustom(REPEAT_KEYS) != null) 255 else 90)
+            // karıştır / tekrar yalnızca yeterince geniş widget'ta görünür; kapalıyken soluk, açıkken vurgu renginde
+            Controls.sync()
+            val wide = wDp >= 340
+            val vis = if (wide) View.VISIBLE else View.GONE
+            rv.setViewVisibility(R.id.w_shuffle, vis)
+            rv.setViewVisibility(R.id.w_repeat, vis)
+            val accent = CoverPalette.accent(art)
+            val off = Color.argb(110, 255, 255, 255)
+            rv.setInt(R.id.w_shuffle, "setColorFilter", if (Controls.shuffle) accent else off)
+            rv.setImageViewResource(
+                R.id.w_repeat,
+                if (Controls.repeat == 2) R.drawable.ic_repeat_one else R.drawable.ic_repeat
+            )
+            rv.setInt(R.id.w_repeat, "setColorFilter", if (Controls.repeat == 0) off else accent)
 
             rv.setOnClickPendingIntent(R.id.w_prev, actionIntent(ctx, ACTION_PREV, 1))
             rv.setOnClickPendingIntent(R.id.w_play, actionIntent(ctx, ACTION_PLAY, 2))
@@ -254,18 +251,15 @@ class MediaWidgetProvider : AppWidgetProvider() {
         when (action) {
             ACTION_PREV -> tc.skipToPrevious()
             ACTION_NEXT -> tc.skipToNext()
-            ACTION_SHUFFLE -> custom(context, SHUFFLE_KEYS)
-            ACTION_REPEAT -> custom(context, REPEAT_KEYS)
+            ACTION_SHUFFLE -> {
+                Controls.tapShuffle(context)
+                refresh(context)
+            }
+            ACTION_REPEAT -> {
+                Controls.tapRepeat(context)
+                refresh(context)
+            }
             else -> if (MediaRepo.info?.isPlaying == true) tc.pause() else tc.play()
-        }
-    }
-
-    private fun custom(context: Context, keys: List<String>) {
-        val a = findCustom(keys)
-        if (a == null) {
-            Toast.makeText(context, "Bu uygulama bu düğmeyi paylaşmıyor", Toast.LENGTH_SHORT).show()
-        } else {
-            MediaRepo.controller?.transportControls?.sendCustomAction(a, null)
         }
     }
 }

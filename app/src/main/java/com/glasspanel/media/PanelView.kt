@@ -28,8 +28,7 @@ import android.widget.TextView
 /** Kapaktan renk alan, arkasında kapağın bulanık hâli olan yuvarlak köşeli kart. */
 internal class CoverCard(context: Context) : FrameLayout(context) {
 
-    private var radius = context.dpf(28f)
-    private var material = false
+    private val radius = context.dpf(28f)
     private val rect = RectF()
     private val src = Rect()
     private var baseColor = CoverPalette.DEFAULT_BASE
@@ -59,22 +58,6 @@ internal class CoverCard(context: Context) : FrameLayout(context) {
         clipToOutline = true
     }
 
-    fun setMaterial(on: Boolean) {
-        material = on
-        radius = context.dpf(if (on) 32f else 28f)
-        invalidateOutline()
-        invalidate()
-    }
-
-    private fun tonal(c: Int): Int {
-        val t = 0.12f
-        return Color.rgb(
-            (Color.red(c) * (1 - t) + 255 * t).toInt(),
-            (Color.green(c) * (1 - t) + 255 * t).toInt(),
-            (Color.blue(c) * (1 - t) + 255 * t).toInt()
-        )
-    }
-
     fun setLook(base: Int, bmp: Bitmap?) {
         baseColor = base
         backdrop = bmp
@@ -102,13 +85,6 @@ internal class CoverCard(context: Context) : FrameLayout(context) {
         val w = width.toFloat()
         val h = height.toFloat()
         rect.set(0f, 0f, w, h)
-
-        if (material) {
-            // Material: düz, tonal yüzey; bulanık kapak, gradyan ve çerçeve yok
-            basePaint.color = tonal(baseColor)
-            canvas.drawRoundRect(rect, radius, radius, basePaint)
-            return
-        }
 
         basePaint.color = baseColor
         canvas.drawRoundRect(rect, radius, radius, basePaint)
@@ -171,14 +147,14 @@ class PanelView(context: Context) : LinearLayout(context) {
     private val btnPrev = ImageButton(context)
     private val btnPlay = ImageButton(context)
     private val btnNext = ImageButton(context)
+    private val btnShuffle = ImageButton(context)
+    private val btnRepeat = ImageButton(context)
 
     private var lastArt: Bitmap? = null
     private var backdrop: Bitmap? = null
     private var baseColor = CoverPalette.DEFAULT_BASE
     private var accentColor = CoverPalette.DEFAULT_ACCENT
     private var ratio = 1f
-    private var materialOn = false
-    private var artRadius = context.dpf(22f)
 
     private val playBg = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
@@ -238,7 +214,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         art.scaleType = ImageView.ScaleType.CENTER_CROP
         art.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, artRadius)
+                outline.setRoundRect(0, 0, view.width, view.height, context.dpf(22f))
             }
         }
         art.clipToOutline = true
@@ -353,22 +329,33 @@ class PanelView(context: Context) : LinearLayout(context) {
         val btnRow = LinearLayout(context)
         btnRow.orientation = LinearLayout.HORIZONTAL
         btnRow.gravity = Gravity.CENTER
+        styleButton(btnShuffle, R.drawable.ic_shuffle, 10f)
+        styleButton(btnRepeat, R.drawable.ic_repeat, 10f)
         styleButton(btnPrev, R.drawable.ic_prev, 11f)
         styleButton(btnPlay, R.drawable.ic_play, 14f)
         styleButton(btnNext, R.drawable.ic_next, 11f)
         btnPlay.background = playBg
         btnPlay.setColorFilter(0xFF10131C.toInt())
-        val side = context.dpi(48f)
+        val side = context.dpi(46f)
+        val small = context.dpi(40f)
         val mid = context.dpi(60f)
-        btnRow.addView(btnPrev, LinearLayout.LayoutParams(side, side))
+        btnRow.addView(btnShuffle, LinearLayout.LayoutParams(small, small))
+        btnRow.addView(
+            btnPrev,
+            LinearLayout.LayoutParams(side, side).apply { leftMargin = context.dpi(10f) }
+        )
         btnRow.addView(
             btnPlay,
             LinearLayout.LayoutParams(mid, mid).apply {
-                leftMargin = context.dpi(24f)
-                rightMargin = context.dpi(24f)
+                leftMargin = context.dpi(12f)
+                rightMargin = context.dpi(12f)
             }
         )
-        btnRow.addView(btnNext, LinearLayout.LayoutParams(side, side))
+        btnRow.addView(
+            btnNext,
+            LinearLayout.LayoutParams(side, side).apply { rightMargin = context.dpi(10f) }
+        )
+        btnRow.addView(btnRepeat, LinearLayout.LayoutParams(small, small))
         bottomContent.addView(
             btnRow,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -386,6 +373,14 @@ class PanelView(context: Context) : LinearLayout(context) {
                 MediaRepo.controller?.transportControls?.seekTo((f * i.durationMs).toLong())
             }
         }
+        btnShuffle.setOnClickListener {
+            Controls.tapShuffle(context)
+            updateToggles()
+        }
+        btnRepeat.setOnClickListener {
+            Controls.tapRepeat(context)
+            updateToggles()
+        }
         btnPrev.setOnClickListener { MediaRepo.controller?.transportControls?.skipToPrevious() }
         btnNext.setOnClickListener { MediaRepo.controller?.transportControls?.skipToNext() }
         btnPlay.setOnClickListener {
@@ -397,6 +392,15 @@ class PanelView(context: Context) : LinearLayout(context) {
             bottomContent,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
+    }
+
+    /** Karıştır / tekrar durumu: kapalıyken soluk, açıkken vurgu renginde; tek şarkı tekrarında simgenin ortasında "1". */
+    private fun updateToggles() {
+        Controls.sync()
+        val off = Color.argb(110, 255, 255, 255)
+        btnShuffle.setColorFilter(if (Controls.shuffle) accentColor else off)
+        btnRepeat.setImageResource(if (Controls.repeat == 2) R.drawable.ic_repeat_one else R.drawable.ic_repeat)
+        btnRepeat.setColorFilter(if (Controls.repeat == 0) off else accentColor)
     }
 
     private fun styleButton(b: ImageButton, res: Int, padDp: Float) {
@@ -462,48 +466,14 @@ class PanelView(context: Context) : LinearLayout(context) {
         }
     }
 
-    /** Panel stilini (kapak odaklı / Material) uygular. */
-    private fun applyStyle(on: Boolean) {
-        materialOn = on
-        cardTop.setMaterial(on)
-        cardBottom.setMaterial(on)
-        artRadius = context.dpf(if (on) 26f else 22f)
-        art.invalidateOutline()
-
-        val chipBg = GradientDrawable()
-        if (on) {
-            chipBg.cornerRadius = context.dpf(50f)
-            chipBg.setColor(withAlpha(accentColor, 52))
-        } else {
-            chipBg.cornerRadius = context.dpf(12f)
-            chipBg.setColor(Color.argb(55, 255, 255, 255))
-            chipBg.setStroke(context.dpi(1f), Color.argb(60, 255, 255, 255))
-        }
-        appChip.background = chipBg
-
-        playBg.shape = if (on) GradientDrawable.RECTANGLE else GradientDrawable.OVAL
-        playBg.cornerRadius = context.dpf(22f)
-
-        for (b in listOf(btnPrev, btnNext)) {
-            if (on) {
-                val g = GradientDrawable()
-                g.shape = GradientDrawable.OVAL
-                g.setColor(withAlpha(accentColor, 46))
-                b.background = g
-            } else {
-                b.setBackgroundColor(Color.TRANSPARENT)
-            }
-        }
-    }
-
     private fun applyPalette(b: Bitmap?) {
         baseColor = CoverPalette.base(b)
         accentColor = CoverPalette.accent(b)
         seek.accent = accentColor
         playBg.setColor(accentColor)
+        updateToggles()
         cardTop.setLook(baseColor, backdrop)
         cardBottom.setLook(baseColor, backdrop)
-        if (materialOn) applyStyle(true)
         onPalette?.invoke(accentColor)
     }
 
@@ -516,11 +486,6 @@ class PanelView(context: Context) : LinearLayout(context) {
     }
 
     fun render() {
-        val wantMaterial = Prefs.panelStyle(context) == 1
-        if (wantMaterial != materialOn) {
-            applyStyle(wantMaterial)
-            requestLayout()
-        }
         val i = MediaRepo.info
         if (i == null) {
             appChip.text = "Medya Paneli"
@@ -568,6 +533,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         }
 
         btnPlay.setImageResource(if (i.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        updateToggles()
         tick()
     }
 
