@@ -1,13 +1,39 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="96dp"
-    android:height="96dp"
-    android:viewportWidth="96"
-    android:viewportHeight="96">
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- zemin: koyu yeşilden derine geçiş -->
+    <path android:pathData="M28,0H80A28,28 0 0,1 108,28V80A28,28 0 0,1 80,108H28A28,28 0 0,1 0,80V28A28,28 0 0,1 28,0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108"
+                android:type="linear">
+                <item android:color="#FF4A6B2E" android:offset="0.0" />
+                <item android:color="#FF1B2A14" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- üst kart: kapak -->
     <path
-        android:fillColor="#2B3D1E"
-        android:pathData="M0,0h96v96h-96z" />
+        android:fillColor="#FFC4E566"
+        android:pathData="M30,18H78A12,12 0 0,1 90,30V58A12,12 0 0,1 78,70H30A12,12 0 0,1 18,58V30A12,12 0 0,1 30,18Z" />
+    <!-- oynat simgesi -->
     <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.9"
-        android:pathData="M38,28v40l32,-20z" />
+        android:fillColor="#FF22301B"
+        android:pathData="M47,31L47,57L68,44Z" />
+    <!-- alt kart: süre çubuğu -->
+    <path
+        android:fillColor="#33FFFFFF"
+        android:pathData="M28,76H80A10,10 0 0,1 90,86V86A10,10 0 0,1 80,96H28A10,10 0 0,1 18,86V86A10,10 0 0,1 28,76Z" />
+    <path
+        android:fillColor="#FFC4E566"
+        android:pathData="M27,84H55A2,2 0 0,1 57,86V86A2,2 0 0,1 55,88H27A2,2 0 0,1 25,86V86A2,2 0 0,1 27,84Z" />
+    <path
+        android:fillColor="#55FFFFFF"
+        android:pathData="M57,84H79A2,2 0 0,1 81,86V86A2,2 0 0,1 79,88H57A2,2 0 0,1 55,86V86A2,2 0 0,1 57,84Z" />
 </vector>
