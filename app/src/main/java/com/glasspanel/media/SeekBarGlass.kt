@@ -17,6 +17,9 @@ class SeekBarGlass(context: Context) : View(context) {
             invalidate()
         }
 
+    /** Çubuğun boşta kalınlığı (dp); sürüklerken biraz kalınlaşır. */
+    var barDp: Float = 5f
+
     var onSeek: ((Float) -> Unit)? = null
     var onDrag: ((Float) -> Unit)? = null
 
@@ -36,14 +39,14 @@ class SeekBarGlass(context: Context) : View(context) {
         }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val h = context.dpi(28f)
+        val h = context.dpi(barDp + 21f)
         setMeasuredDimension(resolveSize(suggestedMinimumWidth, widthMeasureSpec), resolveSize(h, heightMeasureSpec))
     }
 
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
-        val barH = context.dpf(if (dragging) 8f else 5f)
+        val barH = context.dpf(if (dragging) barDp + 3f else barDp)
         val top = (h - barH) / 2f
         val r = barH / 2f
         rect.set(0f, top, w, top + barH)

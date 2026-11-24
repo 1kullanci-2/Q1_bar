@@ -148,8 +148,17 @@ class PanelView(context: Context) : LinearLayout(context) {
     private val btnPlay = ImageButton(context)
     private val btnNext = ImageButton(context)
     private val btnShuffle = ImageButton(context)
-    private val btnLike = ImageButton(context)
-    private val nextLine = TextView(context)
+    private val btnQueue = ImageButton(context)
+    private val volSeek = SeekBarGlass(context)
+    private val qHeader = LinearLayout(context)
+    private val qArt = ImageView(context)
+    private val qTitle = TextView(context)
+    private val qArtist = TextView(context)
+    private val qScroll = android.widget.ScrollView(context)
+    private val qList = LinearLayout(context)
+    private var queueMode = false
+    private var queueSig = ""
+    private val audio = context.getSystemService(android.media.AudioManager::class.java)
     private val btnRepeat = ImageButton(context)
 
     private var lastArt: Bitmap? = null
@@ -214,14 +223,6 @@ class PanelView(context: Context) : LinearLayout(context) {
             appChip,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
-        topRow.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
-        styleButton(btnLike, R.drawable.ic_heart, 7f)
-        btnLike.visibility = View.GONE
-        btnLike.setOnClickListener {
-            Controls.tapLike(context)
-            updateToggles()
-        }
-        topRow.addView(btnLike, LinearLayout.LayoutParams(context.dpi(38f), context.dpi(38f)))
         topContent.addView(
             topRow,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -303,15 +304,48 @@ class PanelView(context: Context) : LinearLayout(context) {
             }
         )
 
-        nextLine.textSize = 13f
-        nextLine.setSingleLine(true)
-        nextLine.ellipsize = TextUtils.TruncateAt.END
-        nextLine.visibility = View.GONE
-        nextLine.setPadding(0, context.dpi(8f), 0, context.dpi(2f))
-        nextLine.setOnClickListener { showQueue() }
+        // sıra görünümü: küçük kapak + şarkı bilgisi ve kaydırılabilir liste
+        qHeader.orientation = LinearLayout.HORIZONTAL
+        qHeader.gravity = Gravity.CENTER_VERTICAL
+        qHeader.visibility = View.GONE
+        qArt.scaleType = ImageView.ScaleType.CENTER_CROP
+        qArt.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, context.dpf(12f))
+            }
+        }
+        qArt.clipToOutline = true
+        qHeader.addView(qArt, LinearLayout.LayoutParams(context.dpi(56f), context.dpi(56f)))
+        val qCol = LinearLayout(context)
+        qCol.orientation = LinearLayout.VERTICAL
+        qTitle.setTextColor(Color.WHITE)
+        qTitle.textSize = 18f
+        qTitle.typeface = Typeface.DEFAULT_BOLD
+        qTitle.setSingleLine(true)
+        qTitle.ellipsize = TextUtils.TruncateAt.END
+        qArtist.setTextColor(Color.argb(190, 255, 255, 255))
+        qArtist.textSize = 14f
+        qArtist.setSingleLine(true)
+        qArtist.ellipsize = TextUtils.TruncateAt.END
+        qCol.addView(qTitle)
+        qCol.addView(qArtist)
+        qHeader.addView(
+            qCol,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = context.dpi(14f) }
+        )
         topContent.addView(
-            nextLine,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            qHeader,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = context.dpi(12f)
+            }
+        )
+        qList.orientation = LinearLayout.VERTICAL
+        qScroll.addView(qList, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        qScroll.isVerticalScrollBarEnabled = false
+        qScroll.visibility = View.GONE
+        topContent.addView(
+            qScroll,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0).apply { topMargin = context.dpi(10f) }
         )
 
         cardTop.addView(
@@ -322,72 +356,105 @@ class PanelView(context: Context) : LinearLayout(context) {
 
     private fun buildBottom() {
         bottomContent.orientation = LinearLayout.VERTICAL
-        bottomContent.setPadding(context.dpi(20f), context.dpi(12f), context.dpi(20f), context.dpi(10f))
+        bottomContent.setPadding(context.dpi(20f), context.dpi(14f), context.dpi(20f), context.dpi(10f))
 
+        // kalın süre çubuğu, altında süreler
+        seek.barDp = 7f
+        bottomContent.addView(
+            seek,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        )
         val timeRow = LinearLayout(context)
         timeRow.orientation = LinearLayout.HORIZONTAL
-        timeRow.gravity = Gravity.CENTER_VERTICAL
         for (t in listOf(timeCur, timeTotal)) {
-            t.setTextColor(Color.argb(215, 255, 255, 255))
-            t.textSize = 12f
+            t.setTextColor(Color.argb(225, 255, 255, 255))
+            t.textSize = 13f
             t.typeface = Typeface.DEFAULT_BOLD
-            t.minWidth = context.dpi(36f)
         }
         timeTotal.gravity = Gravity.END
-        timeRow.addView(
-            timeCur,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        )
-        timeRow.addView(
-            seek,
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                leftMargin = context.dpi(8f)
-                rightMargin = context.dpi(8f)
-            }
-        )
-        timeRow.addView(
-            timeTotal,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        )
+        timeRow.setPadding(context.dpi(4f), 0, context.dpi(4f), 0)
+        timeRow.addView(timeCur, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        timeRow.addView(timeTotal, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         bottomContent.addView(
             timeRow,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
+        // büyük, sade önceki / oynat-durdur / sonraki
         val btnRow = LinearLayout(context)
         btnRow.orientation = LinearLayout.HORIZONTAL
         btnRow.gravity = Gravity.CENTER
-        styleButton(btnShuffle, R.drawable.ic_shuffle, 10f)
-        styleButton(btnRepeat, R.drawable.ic_repeat, 10f)
-        styleButton(btnPrev, R.drawable.ic_prev, 11f)
-        styleButton(btnPlay, R.drawable.ic_play, 14f)
-        styleButton(btnNext, R.drawable.ic_next, 11f)
-        btnPlay.background = playBg
-        btnPlay.setColorFilter(0xFF10131C.toInt())
-        val side = context.dpi(46f)
-        val small = context.dpi(40f)
-        val mid = context.dpi(60f)
-        btnRow.addView(btnShuffle, LinearLayout.LayoutParams(small, small))
-        btnRow.addView(
-            btnPrev,
-            LinearLayout.LayoutParams(side, side).apply { leftMargin = context.dpi(10f) }
-        )
+        styleButton(btnPrev, R.drawable.ic_rewind, 10f)
+        styleButton(btnPlay, R.drawable.ic_play, 8f)
+        styleButton(btnNext, R.drawable.ic_forward, 10f)
+        btnPlay.setColorFilter(Color.WHITE)
+        btnPrev.setColorFilter(Color.WHITE)
+        btnNext.setColorFilter(Color.WHITE)
+        val side = context.dpi(62f)
+        val mid = context.dpi(74f)
+        btnRow.addView(btnPrev, LinearLayout.LayoutParams(side, side))
         btnRow.addView(
             btnPlay,
             LinearLayout.LayoutParams(mid, mid).apply {
+                leftMargin = context.dpi(26f)
+                rightMargin = context.dpi(26f)
+            }
+        )
+        btnRow.addView(btnNext, LinearLayout.LayoutParams(side, side))
+        bottomContent.addView(
+            btnRow,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = context.dpi(6f)
+            }
+        )
+
+        // ses seviyesi
+        val volRow = LinearLayout(context)
+        volRow.orientation = LinearLayout.HORIZONTAL
+        volRow.gravity = Gravity.CENTER_VERTICAL
+        val vlow = ImageView(context)
+        vlow.setImageResource(R.drawable.ic_volume_low)
+        vlow.setColorFilter(Color.argb(190, 255, 255, 255))
+        val vhigh = ImageView(context)
+        vhigh.setImageResource(R.drawable.ic_volume_high)
+        vhigh.setColorFilter(Color.argb(190, 255, 255, 255))
+        volSeek.barDp = 6f
+        volSeek.accent = Color.argb(190, 255, 255, 255)
+        volRow.addView(vlow, LinearLayout.LayoutParams(context.dpi(22f), context.dpi(22f)))
+        volRow.addView(
+            volSeek,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 leftMargin = context.dpi(12f)
                 rightMargin = context.dpi(12f)
             }
         )
-        btnRow.addView(
-            btnNext,
-            LinearLayout.LayoutParams(side, side).apply { rightMargin = context.dpi(10f) }
-        )
-        btnRow.addView(btnRepeat, LinearLayout.LayoutParams(small, small))
+        volRow.addView(vhigh, LinearLayout.LayoutParams(context.dpi(22f), context.dpi(22f)))
         bottomContent.addView(
-            btnRow,
+            volRow,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = context.dpi(2f)
+                topMargin = context.dpi(4f)
+            }
+        )
+        volSeek.onDrag = { f -> setVolume(f) }
+        volSeek.onSeek = { f -> setVolume(f) }
+
+        // en alt: karıştır, tekrar, sıra
+        val iconRow = LinearLayout(context)
+        iconRow.orientation = LinearLayout.HORIZONTAL
+        iconRow.gravity = Gravity.CENTER_VERTICAL
+        styleButton(btnShuffle, R.drawable.ic_shuffle, 10f)
+        styleButton(btnRepeat, R.drawable.ic_repeat, 10f)
+        styleButton(btnQueue, R.drawable.ic_queue, 10f)
+        val ib = context.dpi(46f)
+        for (b in listOf(btnShuffle, btnRepeat, btnQueue)) {
+            val cell = FrameLayout(context)
+            cell.addView(b, FrameLayout.LayoutParams(ib, ib, Gravity.CENTER))
+            iconRow.addView(cell, LinearLayout.LayoutParams(0, ib, 1f))
+        }
+        bottomContent.addView(
+            iconRow,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = context.dpi(4f)
             }
         )
 
@@ -409,6 +476,15 @@ class PanelView(context: Context) : LinearLayout(context) {
             Controls.tapRepeat(context)
             updateToggles()
         }
+        btnQueue.setOnClickListener {
+            if (queueItems() == null) {
+                android.widget.Toast.makeText(context, "Bu uygulama sırayı paylaşmıyor", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                queueMode = !queueMode
+                applyQueueMode()
+                requestLayout()
+            }
+        }
         btnPrev.setOnClickListener { MediaRepo.controller?.transportControls?.skipToPrevious() }
         btnNext.setOnClickListener { MediaRepo.controller?.transportControls?.skipToNext() }
         btnPlay.setOnClickListener {
@@ -422,6 +498,18 @@ class PanelView(context: Context) : LinearLayout(context) {
         )
     }
 
+    private fun setVolume(f: Float) {
+        val am = audio ?: return
+        val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+        am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.round(f * max), 0)
+    }
+
+    private fun syncVolume() {
+        val am = audio ?: return
+        val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+        if (max > 0) volSeek.fraction = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat() / max
+    }
+
     /** Karıştır / tekrar durumu: kapalıyken soluk, açıkken vurgu renginde; tek şarkı tekrarında simgenin ortasında "1". */
     private fun updateToggles() {
         Controls.sync()
@@ -430,15 +518,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         btnRepeat.setImageResource(if (Controls.repeat == 2) R.drawable.ic_repeat_one else R.drawable.ic_repeat)
         btnRepeat.setColorFilter(if (Controls.repeat == 0) off else accentColor)
 
-        val liked = Controls.liked()
-        if (liked == null) {
-            btnLike.visibility = View.GONE
-        } else {
-            btnLike.visibility = View.VISIBLE
-            btnLike.setImageResource(if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart)
-            btnLike.setColorFilter(if (liked) accentColor else Color.argb(200, 255, 255, 255))
-        }
-        updateQueue()
+        btnQueue.setColorFilter(if (queueMode) accentColor else off)
     }
 
     private fun queueItems(): List<android.media.session.MediaSession.QueueItem>? {
@@ -449,47 +529,105 @@ class PanelView(context: Context) : LinearLayout(context) {
         }
     }
 
-    /** Uygulama sırayı paylaşıyorsa "Sırada: …" satırını gösterir. */
-    private fun updateQueue() {
+    /** Sıra görünümü açıkken kapak ve şarkı yazıları gizlenir, yerine küçük başlık ve liste gelir. */
+    private fun applyQueueMode() {
+        val on = queueMode && queueItems() != null
+        queueMode = on
+        coverBox.visibility = if (on) View.GONE else View.VISIBLE
+        title.visibility = if (on) View.GONE else View.VISIBLE
+        artist.visibility = if (on || artist.text.isNullOrBlank()) View.GONE else View.VISIBLE
+        album.visibility = if (on || album.text.isNullOrBlank()) View.GONE else View.VISIBLE
+        qHeader.visibility = if (on) View.VISIBLE else View.GONE
+        qScroll.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) {
+            queueSig = ""
+            fillQueue()
+        }
+        updateToggles()
+    }
+
+    private fun fillQueue() {
         val q = queueItems()
         if (q == null) {
-            nextLine.visibility = View.GONE
+            if (queueMode) {
+                queueMode = false
+                applyQueueMode()
+                requestLayout()
+            }
             return
         }
         val active = MediaRepo.controller?.playbackState?.activeQueueItemId ?: -1L
-        val idx = q.indexOfFirst { it.queueId == active }
-        val next = if (idx >= 0 && idx + 1 < q.size) q[idx + 1] else null
-        nextLine.setTextColor(withAlpha(accentColor, 235))
-        nextLine.text = if (next != null) {
-            val d = next.description
-            "Sırada: " + (d.title ?: "?") + (d.subtitle?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: "") + "  ›"
-        } else {
-            "Sırayı göster (${q.size})  ›"
-        }
-        nextLine.visibility = View.VISIBLE
-    }
+        val sig = q.size.toString() + ":" + q.first().queueId + ":" + active
+        if (sig == queueSig) return
+        queueSig = sig
 
-    private fun showQueue() {
-        val q = queueItems() ?: return
-        val active = MediaRepo.controller?.playbackState?.activeQueueItemId ?: -1L
-        val idx = q.indexOfFirst { it.queueId == active }
-        val labels = q.mapIndexed { n, item ->
-            val d = item.description
-            (if (n == idx) "▶  " else "     ") + (d.title ?: "?") +
-                (d.subtitle?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: "")
-        }.toTypedArray()
-        try {
-            val dlg = android.app.AlertDialog.Builder(context, android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-                .setTitle("Sıra")
-                .setItems(labels) { _, which ->
-                    MediaRepo.controller?.transportControls?.skipToQueueItem(q[which].queueId)
+        val i = MediaRepo.info
+        qTitle.text = i?.title ?: ""
+        qArtist.text = i?.artist ?: ""
+        val a = i?.art
+        if (a != null) qArt.setImageBitmap(a) else qArt.setImageDrawable(placeholderArt())
+
+        qList.removeAllViews()
+        var activeRow: View? = null
+        for (item in q) {
+            val row = LinearLayout(context)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setPadding(0, context.dpi(7f), 0, context.dpi(7f))
+            val isActive = item.queueId == active
+
+            val thumbBox = FrameLayout(context)
+            val thumb = ImageView(context)
+            thumb.scaleType = ImageView.ScaleType.CENTER_CROP
+            thumb.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, context.dpf(10f))
                 }
-                .setNegativeButton("Kapat", null)
-                .create()
-            dlg.show()
-            if (idx > 2) dlg.listView?.setSelection(idx - 2)
-        } catch (_: Exception) {
+            }
+            thumb.clipToOutline = true
+            val ic = item.description.iconBitmap
+            if (ic != null) thumb.setImageBitmap(ic)
+            thumbBox.addView(thumb, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            if (isActive) {
+                val play = ImageView(context)
+                play.setImageResource(R.drawable.ic_play)
+                play.setColorFilter(Color.WHITE)
+                val pp = context.dpi(14f)
+                play.setPadding(pp, pp, pp, pp)
+                thumbBox.addView(play, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            }
+            row.addView(thumbBox, LinearLayout.LayoutParams(context.dpi(52f), context.dpi(52f)))
+
+            val col = LinearLayout(context)
+            col.orientation = LinearLayout.VERTICAL
+            val t = TextView(context)
+            t.text = item.description.title ?: "?"
+            t.setTextColor(if (isActive) accentColor else Color.WHITE)
+            t.textSize = 16f
+            t.typeface = Typeface.DEFAULT_BOLD
+            t.setSingleLine(true)
+            t.ellipsize = TextUtils.TruncateAt.END
+            col.addView(t)
+            val sub = item.description.subtitle
+            if (!sub.isNullOrBlank()) {
+                val st = TextView(context)
+                st.text = sub
+                st.setTextColor(Color.argb(180, 255, 255, 255))
+                st.textSize = 13f
+                st.setSingleLine(true)
+                st.ellipsize = TextUtils.TruncateAt.END
+                col.addView(st)
+            }
+            row.addView(
+                col,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = context.dpi(14f) }
+            )
+            row.setOnClickListener { MediaRepo.controller?.transportControls?.skipToQueueItem(item.queueId) }
+            qList.addView(row)
+            if (isActive) activeRow = row
         }
+        val ar = activeRow
+        if (ar != null) qScroll.post { qScroll.scrollTo(0, (ar.top - context.dpi(10f)).coerceAtLeast(0)) }
     }
 
     private fun styleButton(b: ImageButton, res: Int, padDp: Float) {
@@ -524,6 +662,8 @@ class PanelView(context: Context) : LinearLayout(context) {
         val innerW = (w - context.dpi(40f)).coerceAtLeast(minSide)
 
         // 1) kapak olmadan geri kalan her şeyin yüksekliğini ölç
+        val qLp = qScroll.layoutParams as LinearLayout.LayoutParams
+        qLp.height = 0
         boxLp.width = innerW
         boxLp.height = 0
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
@@ -535,6 +675,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         val (cw, ch) = coverSize(innerW, maxH)
         boxLp.width = cw
         boxLp.height = ch
+        qLp.height = if (queueMode) ch + context.dpi(40f) else 0
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
@@ -558,7 +699,6 @@ class PanelView(context: Context) : LinearLayout(context) {
     private fun applyPalette(b: Bitmap?) {
         baseColor = CoverPalette.base(b)
         accentColor = CoverPalette.accent(b)
-        seek.accent = accentColor
         playBg.setColor(accentColor)
         updateToggles()
         cardTop.setLook(baseColor, backdrop)
@@ -598,6 +738,10 @@ class PanelView(context: Context) : LinearLayout(context) {
         artist.visibility = if (i.artist.isBlank()) View.GONE else View.VISIBLE
         album.text = i.album
         album.visibility = if (i.album.isBlank()) View.GONE else View.VISIBLE
+        if (queueMode) {
+            artist.visibility = View.GONE
+            album.visibility = View.GONE
+        }
 
         if (i.appIcon != null) {
             badge.setImageBitmap(i.appIcon)
@@ -623,6 +767,7 @@ class PanelView(context: Context) : LinearLayout(context) {
 
         btnPlay.setImageResource(if (i.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
         updateToggles()
+        if (queueMode) fillQueue()
         tick()
     }
 
@@ -632,6 +777,7 @@ class PanelView(context: Context) : LinearLayout(context) {
         timeCur.text = formatTime(pos)
         timeTotal.text = if (i.durationMs > 0) formatTime(i.durationMs) else "--:--"
         seek.fraction = if (i.durationMs > 0) pos.toFloat() / i.durationMs else 0f
+        syncVolume()
     }
 
     override fun onAttachedToWindow() {
